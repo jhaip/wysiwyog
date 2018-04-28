@@ -20,7 +20,7 @@ class RPCClient:
         return json.loads(message)
 
     def get_wishes_by_type(self, type):
-        return self._rpc("get_wishes_by_type", {"type": type})
+        return self._rpc("get_wishes_by_type", type)
 
     def clear_wishes(self, opts):
         return self._rpc("clear_wishes", opts)

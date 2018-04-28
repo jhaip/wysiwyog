@@ -20,49 +20,68 @@ class Master:
 
     def clear_wishes(self, opts):
         def keep(w):
-            return any(map(lambda k: w.get(k) != opts[k], opts.keys()))
+            return any(map(lambda k: str(w.get(k)) != str(opts[k]), opts.keys()))
         self.wishes = list(filter(keep, self.wishes))
         logging.info("WISH CLEARED")
         logging.info(self.wishes)
 
     def get_wishes_by_type(self, type):
-        return list(filter(lambda w: w.get("type") == type, self.wishes))
+        return list(filter(lambda w: str(w.get("type")) == str(type), self.wishes))
 
     def wish(self, type, source, action):
         self.clear_wishes({"type": type, "source": source})
         self.wishes.append({
             "id": str(uuid.uuid4()),
-            "type": type,
-            "source": source,
-            "action": action
+            "type": str(type),
+            "source": str(source),
+            "action": str(action)
         })
         logging.info("WISH ADDED")
         logging.info(self.wishes)
 
     def claim(self, source, key, value):
+        source = str(source)
+        key = str(key)
         if source not in self.state:
             self.state[source] = {}
         self.state[source][key] = value
         logging.info("CLAIM ADDED")
         logging.info(self.state)
 
+    def clear_claims(self, source):
+        source = str(source)
+        self.state[source] = {}
+        logging.info("CLEAR CLAIMS")
+        logging.info(self.state)
+
     def when(self, source, key):
+        source = str(source)
+        key = str(key)
         return self.state.get(source, {}).get(key)
 
     def stop_program(self, id):
+        id = str(id)
         if id in self.programs:
+            # logging.error("STOP PROGRAM - %s" % id)
+            # logging.error(self.programs)
             pid = self.programs[id].get("pid")
+            # logging.error("PID %s" % pid)
             if pid is not None and psutil.pid_exists(pid):
+                # logging.error("ABOUT TO STOP PROGRAM %s" % pid)
                 p = psutil.Process(pid)
                 p.terminate()
                 p.wait(timeout=1)  # This might be blocking?
                 self.programs[id]["pid"] = None
-                logging.info("PROGRAM STOPPED")
-                logging.info(self.programs)
+                # logging.error("PROGRAM STOPPED")
+                # logging.error(self.programs)
+                # logging.error("DONE WITH STOP PROGRAM - %s" % id)
+            self.clear_wishes({"source": str(id)})
+            self.clear_claims(str(id))
         else:
             logging.error("Program with id %s does not exist" % id)
 
     def run_program(self, id, restart=False):
+        id = str(id)
         if id in self.programs:
             pid = self.programs[id].get("pid")
             if pid is not None and psutil.pid_exists(pid):
@@ -70,9 +89,12 @@ class Master:
                 if restart or p.status() == psutil.STATUS_ZOMBIE:
                     p.terminate()
                     p.wait(timeout=1)  # This might be blocking?
+                    if restart:
+                        self.clear_wishes({"source": str(id)})
+                        self.clear_claims(str(id))
                 else:
                     return  # let it keep running
-            p = psutil.Popen(["python", self.programs[id]["path"]])
+            p = psutil.Popen(["python", self.programs[id]["path"], str(id)])
             self.programs[id]["pid"] = p.pid
             logging.info("PROGRAM STARTED")
             logging.info(self.programs)
@@ -80,6 +102,8 @@ class Master:
             logging.error("Program with id %s does not exist" % id)
 
     def add_program(self, id, path_to_code, restart=False):
+        id = str(id)
+        path_to_code = str(path_to_code)
         self.programs[id] = {"path": path_to_code}
         logging.info("PROGRAM ADDED")
         logging.info(self.programs)
@@ -88,6 +112,7 @@ class Master:
 
 
 master = Master()
+master.add_program(0, "/app/programs/boot.py", True)
 
 while True:
     message = socket.recv_string()
