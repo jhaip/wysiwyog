@@ -1,0 +1,9 @@
+version: '3'
+services:
+  api:
+    restart: always
+    build: .
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: ["python", "app.py"]
