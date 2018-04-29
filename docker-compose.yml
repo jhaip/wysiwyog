@@ -6,4 +6,6 @@ services:
     working_dir: /app
     volumes:
       - .:/app
+    ports:
+      - "5555:5555"
     command: ["python", "app.py"]
