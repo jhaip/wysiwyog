@@ -12,6 +12,8 @@ class RPCClient:
         logging.info("Connecting to hello world server…")
         self.socket = self.context.socket(zmq.REQ)
         self.socket.connect("tcp://localhost:5555")
+        self.image_socket = self.context.socket(zmq.REQ)
+        self.image_socket.connect("tcp://localhost:5566")
 
     def _rpc(self, eventName, options):
         data = json.dumps({"event": eventName, "options": options})
@@ -43,3 +45,14 @@ class RPCClient:
 
     def add_program(self, id, path, restart=False):
         return self._rpc("add_program", {"id": id, "path": path, "restart": restart})
+
+    def set_image(self, image_string):
+        self.image_socket.send(image_string)
+        message = self.image_socket.recv_string()
+        return message
+
+    def get_image(self):
+        data = json.dumps({"event": "get_image", "options": {}})
+        self.socket.send_string(data)
+        message = self.socket.recv()
+        return message

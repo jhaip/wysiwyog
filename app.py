@@ -1,3 +1,4 @@
+import time
 import zmq
 import logging
 import json
@@ -7,8 +8,11 @@ import uuid
 logging.basicConfig(level=logging.INFO)
 
 context = zmq.Context()
-socket = context.socket(zmq.REP)
-socket.bind("tcp://*:5555")
+string_socket = context.socket(zmq.REP)
+string_socket.bind("tcp://*:5555")
+
+image_socket = context.socket(zmq.REP)
+image_socket.bind("tcp://*:5566")
 
 
 class Master:
@@ -17,6 +21,7 @@ class Master:
         self.wishes = []
         self.state = {}
         self.programs = {}
+        self.image = None
 
     def clear_wishes(self, opts):
         def keep(w):
@@ -110,40 +115,73 @@ class Master:
         if restart:
             self.run_program(id, True)
 
+    def set_image(self, image_string):
+        self.image = image_string
+        logging.info("IMAGE SET")
+
+    def get_image(self):
+        return self.image
+
 
 master = Master()
 master.add_program(0, "/app/programs/boot.py", True)
 
+def process_string_socket():
+    while True:
+        try:
+            message = string_socket.recv_string(zmq.DONTWAIT)
+        except zmq.Again:
+            return
+        # process task
+        logging.info("Received request: %s" % message)
+        message_json = json.loads(message)
+        event = message_json["event"]
+        options = message_json["options"]
+        noop = json.dumps({})
+        if event == "clear_wishes":
+            master.clear_wishes(options)
+            string_socket.send_string(noop)
+        elif event == "get_wishes_by_type":
+            val = master.get_wishes_by_type(options)
+            data = json.dumps(val)
+            string_socket.send_string(data)
+        elif event == "wish":
+            master.wish(options["type"], options["source"], options["action"])
+            string_socket.send_string(noop)
+        elif event == "claim":
+            master.claim(options["source"], options["key"], options["value"])
+            string_socket.send_string(noop)
+        elif event == "when":
+            val = master.when(options["source"], options["key"])
+            data = json.dumps(val)
+            string_socket.send_string(data)
+        elif event == "stop_program":
+            master.stop_program(options["id"])
+            string_socket.send_string(noop)
+        elif event == "run_program":
+            master.run_program(options["id"], options.get("restart", False))
+            string_socket.send_string(noop)
+        elif event == "add_program":
+            master.add_program(options["id"], options["path"], options.get("restart", False))
+            string_socket.send_string(noop)
+        elif event == "get_image":
+            string_socket.send(master.get_image())
+
+
+def process_image_socket():
+    while True:
+        try:
+            message = image_socket.recv(zmq.DONTWAIT)
+        except zmq.Again:
+            return
+        # process task
+        logging.info("Received image")
+        master.set_image(message)
+        noop = json.dumps({})
+        image_socket.send_string(noop)
+
+
 while True:
-    message = socket.recv_string()
-    logging.info("Received request: %s" % message)
-    message_json = json.loads(message)
-    event = message_json["event"]
-    options = message_json["options"]
-    noop = json.dumps({})
-    if event == "clear_wishes":
-        master.clear_wishes(options)
-        socket.send_string(noop)
-    elif event == "get_wishes_by_type":
-        val = master.get_wishes_by_type(options)
-        data = json.dumps(val)
-        socket.send_string(data)
-    elif event == "wish":
-        master.wish(options["type"], options["source"], options["action"])
-        socket.send_string(noop)
-    elif event == "claim":
-        master.claim(options["source"], options["key"], options["value"])
-        socket.send_string(noop)
-    elif event == "when":
-        val = master.when(options["source"], options["key"])
-        data = json.dumps(val)
-        socket.send_string(data)
-    elif event == "stop_program":
-        master.stop_program(options["id"])
-        socket.send_string(noop)
-    elif event == "run_program":
-        master.run_program(options["id"], options.get("restart", False))
-        socket.send_string(noop)
-    elif event == "add_program":
-        master.add_program(options["id"], options["path"], options.get("restart", False))
-        socket.send_string(noop)
+    process_string_socket()
+    process_image_socket()
+    time.sleep(0.001)
