@@ -13,3 +13,12 @@ This could be nice for transmitting the webcam video via ZeroMQ.
 * [wxPython - Working with Images](https://wiki.wxpython.org/WorkingWithImages)
 * [ZeroMQ receive from multiple sockets in Python](http://zguide.zeromq.org/py:msreader)
 * [Create an wx.Image from array](https://stackoverflow.com/questions/20033749/python-image-object-to-wxpython)
+
+Can't set a Core profile for OpenGL 3.2+ with wxPython :(
+According to [this](https://git.fmrib.ox.ac.uk/fsl/fslpy/blob/a38d81b13d428fefc77487d0072d4a2b58210edb/fsl/fslview/slicecanvas.py)
+
+Switching to go because OpenGL and shader support in wxPython is a mess.
+[helpful link about OpenGL, glfw, and shaders in Go](https://kylewbanks.com/blog/tutorial-opengl-with-golang-part-1-hello-opengl)
+
+[Go ZeroMQ v4 bindings](https://github.com/pebbe/zmq4)
+[hwclient](https://github.com/pebbe/zmq4/blob/master/examples/hwclient.go)

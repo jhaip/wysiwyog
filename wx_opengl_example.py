@@ -21,6 +21,24 @@ except ImportError:
     haveOpenGL = False
 
 
+vertexSource = """
+#version 130
+in vec2 position;
+void main()
+{
+    gl_Position = vec4(position, 0.0, 1.0);
+}
+"""
+fragmentSource = """
+#version 130
+out vec4 outColor;
+void main()
+{
+    outColor = vec4(1.0, 1.0, 1.0, 1.0);
+}
+"""
+
+
 class ButtonPanel(wx.Frame):
     def __init__(self, parent, title):
         super(ButtonPanel, self).__init__(parent, title=title,
