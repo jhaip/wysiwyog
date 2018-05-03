@@ -169,13 +169,13 @@ func run() {
 
   loadedFrame, err := getFrameData()
   if err != nil {
-		panic(err)
-	}
+    panic(err)
+  }
 
   gopherImage, err := convertFrameToImage(loadedFrame)
-	if err != nil {
-		panic(err)
-	}
+  if err != nil {
+    panic(err)
+  }
 
 	// Every OpenGL call needs to be done inside the main thread.
 	mainthread.Call(func() {
@@ -191,14 +191,6 @@ func run() {
 		if err != nil {
 			panic(err)
 		}
-
-		// We create a texture from the loaded image.
-		texture = glhf.NewTexture(
-			gopherImage.Bounds().Dx(),
-			gopherImage.Bounds().Dy(),
-			true,
-			gopherImage.Pix,
-		)
 
     // frame to store temporary results?
     frame1 = glhf.NewFrame(
@@ -278,6 +270,24 @@ func run() {
 				shouldQuit = true
 			}
 
+      loadedFrame, err := getFrameData()
+      if err != nil {
+    		panic(err)
+    	}
+
+      gopherImage, err := convertFrameToImage(loadedFrame)
+    	if err != nil {
+    		panic(err)
+    	}
+
+      // We create a texture from the loaded image.
+  		texture = glhf.NewTexture(
+  			gopherImage.Bounds().Dx(),
+  			gopherImage.Bounds().Dy(),
+  			true,
+  			gopherImage.Pix,
+  		)
+
       start := time.Now()
 
 			// Clear the window.
@@ -326,22 +336,23 @@ func run() {
       frame1.Begin()
       frame1.Texture().Begin()
       var pixs = frame1.Texture().Pixels(0, 0, 1280, 720) // this is expensive, ~30ms
+      fmt.Printf("pixs: len=%d \n", len(pixs))
       var dots []string
-      for i := 0; i < len(pixs); i += 4 {
-        if (pixs[i] > 0) {
-          var x, y int
-          x = (i / 4) / 1280
-          y = (i / 4) % 720
-          c := gopherImage.NRGBAAt(x,y)
-          dotString := fmt.Sprintf(
-            "{\"x\": \"%d\", \"y\": \"%d\", \"color\": [%d, %d, %d]}",
-            x,
-            y,
-            c.R,
-            c.G,
-            c.B,
-          )
-          dots = append(dots, dotString)
+      for x := 0; x < 1280; x += 1 {
+        for y := 0; y < 720; y += 1 {
+          i := (y * 1280 + x)*4
+          if (pixs[i] > 0 || pixs[i+1] > 0 || pixs[i+2] > 0) {
+            c := gopherImage.NRGBAAt(x,y)
+            dotString := fmt.Sprintf(
+              "{\"x\": \"%d\", \"y\": \"%d\", \"color\": [%d, %d, %d]}",
+              x,
+              y,
+              c.R,
+              c.G,
+              c.B,
+            )
+            dots = append(dots, dotString)
+          }
         }
       }
       frame1.Texture().End()
@@ -356,6 +367,8 @@ func run() {
 
 			win.SwapBuffers()
 			glfw.PollEvents()
+
+      time.Sleep(1 * time.Second)
 		})
 	}
 }

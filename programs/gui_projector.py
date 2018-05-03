@@ -17,13 +17,14 @@ class Example(wx.Frame):
 
         self.i = 0
         self.bmp = None
+        self.dots = []
 
         self.M = RPCClient.RPCClient()
 
         self.timer = wx.Timer(self, Example.ID_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnTimer, id=Example.ID_TIMER)
 
-        fps = 15
+        fps = 1
         self.timer.Start(1000./fps)
 
     def OnPaint(self, e):
@@ -41,6 +42,11 @@ class Example(wx.Frame):
         dc = wx.BufferedPaintDC(self)
         if self.bmp:
             dc.DrawBitmap(self.bmp, 0, 0)
+        for dot in self.dots:
+            dc.SetBrush(wx.Brush(wx.Colour(dot["color"][0], dot["color"][1], dot["color"][2])))
+            dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
+            s = 3
+            dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
 
     def OnTimer(self, event):
         if event.GetId() == Example.ID_TIMER:
@@ -57,6 +63,10 @@ class Example(wx.Frame):
             # wxImg.SetData(image_string)
             wxImg = wx.ImageFromBuffer(1280, 720, image_string)  # TODO: don't harcode size
             logging.info("got frame")
+            def receiveDots(dots):
+                self.dots = dots
+            dots = self.M.when("global", "dots", receiveDots)
+            logging.info("got dots %s" % len(self.dots))
             self.bmp = wxImg.ConvertToBitmap()
 
             self.Refresh()

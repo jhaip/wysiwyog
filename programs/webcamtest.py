@@ -6,7 +6,7 @@ import json
 import RPCClient
 
 class ShowCapture(wx.Panel):
-    def __init__(self, parent, capture, fps=15):
+    def __init__(self, parent, capture, fps=1):
         wx.Panel.__init__(self, parent)
 
         self.capture = capture
