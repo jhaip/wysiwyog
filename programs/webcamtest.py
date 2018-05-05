@@ -5,8 +5,11 @@ import time
 import json
 import RPCClient
 
+CAM_WIDTH = 1920
+CAM_HEIGHT = 1080
+
 class ShowCapture(wx.Panel):
-    def __init__(self, parent, capture, fps=1):
+    def __init__(self, parent, capture, fps=10):
         wx.Panel.__init__(self, parent)
 
         self.capture = capture
@@ -54,8 +57,8 @@ class ShowCapture(wx.Panel):
 
 
 capture = cv2.VideoCapture(0)
-capture.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+capture.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
+capture.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
 
 app = wx.App()
 frame = wx.Frame(None)
