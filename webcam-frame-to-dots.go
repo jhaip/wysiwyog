@@ -18,6 +18,9 @@ import (
   "github.com/pixiv/go-libjpeg/rgb"
 )
 
+const CAM_WIDTH = 1920
+const CAM_HEIGHT = 1080
+
 // Modified source from github.com/faiface/glhf/examples/demo/main.go
 // I added in zmq and image creation stuff
 
@@ -37,7 +40,8 @@ func loadImage(path string) (*image.NRGBA, error) {
 }
 
 func convertFrameToImage(frame []byte) (*image.NRGBA, error) {
-  img := rgb.NewImage(image.Rect(0, 0, 1280, 720))
+  // takes > 100ms to run this step. Probably doing something wrong
+  img := rgb.NewImage(image.Rect(0, 0, CAM_WIDTH, CAM_HEIGHT))
   img.Pix = frame
   bounds := img.Bounds()
 	gopherImage := image.NewNRGBA(image.Rect(0, 0, bounds.Dx(), bounds.Dy()))
@@ -124,7 +128,7 @@ func run() {
 
 		var err error
 
-		win, err = glfw.CreateWindow(1280, 720, "GLHF Rocks!", nil, nil)
+		win, err = glfw.CreateWindow(CAM_WIDTH, CAM_HEIGHT, "GLHF Rocks!", nil, nil)
 		if err != nil {
 			panic(err)
 		}
@@ -270,15 +274,21 @@ func run() {
 				shouldQuit = true
 			}
 
+      start := time.Now()
+
       loadedFrame, err := getFrameData()
       if err != nil {
     		panic(err)
     	}
 
+      elapsedgetdata := time.Since(start)
+
       gopherImage, err := convertFrameToImage(loadedFrame)
     	if err != nil {
     		panic(err)
     	}
+
+      elapsedtoimage := time.Since(start)
 
       // We create a texture from the loaded image.
   		texture = glhf.NewTexture(
@@ -288,7 +298,7 @@ func run() {
   			gopherImage.Pix,
   		)
 
-      start := time.Now()
+      elapsedtexture := time.Since(start)
 
 			// Clear the window.
 			glhf.Clear(1, 1, 1, 1)
@@ -297,7 +307,7 @@ func run() {
 			// slice.
       frame1.Begin()
 			shaderBlur.Begin()
-      shaderBlur.SetUniformAttr(0, mgl32.Vec3{1280, 720, 0})
+      shaderBlur.SetUniformAttr(0, mgl32.Vec3{CAM_WIDTH, CAM_HEIGHT, 0})
 			texture.Begin()
 			sliceBlur.Begin()
 			sliceBlur.Draw()
@@ -308,7 +318,7 @@ func run() {
 
       frame1.Begin()
 			shader.Begin()
-      shader.SetUniformAttr(0, mgl32.Vec3{1280, 720, 0})
+      shader.SetUniformAttr(0, mgl32.Vec3{CAM_WIDTH, CAM_HEIGHT, 0})
       texture.Begin()
       frame1.Texture().Begin()
 			slice.Begin()
@@ -317,11 +327,11 @@ func run() {
       frame1.Texture().End()
 			shader.End()
       frame1.End()
-      // frame1.Blit(nil, 0, 0, 1280, 720, 0, 0, 1280, 720)
+      // frame1.Blit(nil, 0, 0, CAM_WIDTH, CAM_HEIGHT, 0, 0, CAM_WIDTH, CAM_HEIGHT)
       //
       frame1.Begin()
       shader2.Begin()
-      shader2.SetUniformAttr(0, mgl32.Vec3{1280, 720, 0})
+      shader2.SetUniformAttr(0, mgl32.Vec3{CAM_WIDTH, CAM_HEIGHT, 0})
       frame1.Texture().Begin()
       slice2.Begin()
 			slice2.Draw()
@@ -329,22 +339,22 @@ func run() {
       frame1.Texture().End()
       shader2.End()
       frame1.End()
-      frame1.Blit(nil, 0, 0, 1280, 720, 0, 0, 1280, 720)
+      frame1.Blit(nil, 0, 0, CAM_WIDTH, CAM_HEIGHT, 0, 0, CAM_WIDTH, CAM_HEIGHT)
 
       elapsedmid := time.Since(start)
 
       frame1.Begin()
       frame1.Texture().Begin()
-      var pixs = frame1.Texture().Pixels(0, 0, 1280, 720) // this is expensive, ~30ms
+      var pixs = frame1.Texture().Pixels(0, 0, CAM_WIDTH, CAM_HEIGHT) // this is expensive, ~30ms
       fmt.Printf("pixs: len=%d \n", len(pixs))
       var dots []string
-      for x := 0; x < 1280; x += 1 {
-        for y := 0; y < 720; y += 1 {
-          i := (y * 1280 + x)*4
+      for x := 0; x < CAM_WIDTH; x += 1 {
+        for y := 0; y < CAM_HEIGHT; y += 1 {
+          i := (y * CAM_WIDTH + x)*4
           if (pixs[i] > 0 || pixs[i+1] > 0 || pixs[i+2] > 0) {
             c := gopherImage.NRGBAAt(x,y)
             dotString := fmt.Sprintf(
-              "{\"x\": \"%d\", \"y\": \"%d\", \"color\": [%d, %d, %d]}",
+              "{\"x\": %d, \"y\": %d, \"color\": [%d, %d, %d]}",
               x,
               y,
               c.R,
@@ -362,13 +372,16 @@ func run() {
       claimDots(dots)
 
       elapsed := time.Since(start)
+      fmt.Printf("get data took %s \n", elapsedgetdata)
+      fmt.Printf("to image took %s \n", elapsedtoimage)
+      fmt.Printf("elapsed texture took %s \n", elapsedtexture)
       fmt.Printf("Shaders took %s \n", elapsedmid)
-      fmt.Printf("total took %s \n", elapsed)
+      fmt.Printf("*** total took %s \n", elapsed)
 
 			win.SwapBuffers()
 			glfw.PollEvents()
 
-      time.Sleep(1 * time.Second)
+      // time.Sleep(1 * time.Second)
 		})
 	}
 }
@@ -414,7 +427,7 @@ void main() {
 var fragmentShader = `
 #version 330 core
 
-#define u_r 3.0
+#define u_r 9.0
 #define M_PI 3.1415926535897932384626433832795
 #define PHI_STEP 10.0*M_PI/180.0
 
