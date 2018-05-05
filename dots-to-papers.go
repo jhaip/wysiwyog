@@ -1,16 +1,21 @@
 package main
 
-import "encoding/json"
-import "fmt"
-import "math"
-import "strings"
-import "strconv"
-import "image/color"
-import "github.com/mattn/go-ciede2000"
+import (
+  zmq "github.com/pebbe/zmq4"
+
+  "time"
+  "encoding/json"
+  "fmt"
+  "math"
+  "strings"
+  "strconv"
+  "image/color"
+  "github.com/mattn/go-ciede2000"
+)
 
 type Vec struct {
-	X int
-	Y int
+	X int `json:"x"`
+	Y int `json:"y"`
 }
 
 type Dot struct {
@@ -27,19 +32,64 @@ type Corner struct {
 	Id     int
 }
 
-const dotSize = 6
+type Paper struct {
+  Id        string    `json:"id"`
+  Corners   []Vec     `json:"corners"`
+}
+
+const CAM_WIDTH = 1920
+const CAM_HEIGHT = 1080
+const dotSize = 9
 
 func main() {
-	points := getPoints()
-	// printDots(points)
-	step1 := doStep1(points)
-	// printDots(step1)
-	step2 := doStep2(step1)
-	// printCorners(step2[:5])
-	step3 := doStep3(step1, step2)
-	// printCorners(step3)
-	step4 := doStep4CornersWithIds(step1, step3)
-	printCorners(step4)
+  for {
+    start := time.Now()
+
+  	points := getDots()  // getPoints()
+
+    timeGotDots := time.Since(start)
+  	// printDots(points)
+  	step1 := doStep1(points)
+  	// printDots(step1)
+  	step2 := doStep2(step1)
+  	// printCorners(step2[:5])
+  	step3 := doStep3(step1, step2)
+  	// printCorners(step3)
+  	step4 := doStep4CornersWithIds(step1, step3)
+  	printCorners(step4)
+    papers := getPapersFromCorners(step4)
+    fmt.Println(papers)
+
+    timeProcessing := time.Since(start)
+    claimPapers(papers)
+
+    elapsed := time.Since(start)
+    fmt.Printf("get dots  : %s \n", timeGotDots)
+    fmt.Printf("processing: %s \n", timeProcessing)
+    fmt.Printf("total     : %s \n", elapsed)
+
+    time.Sleep(1 * time.Second)
+  }
+}
+
+func getPapersFromCorners(corners []Corner) []Paper {
+  papersMap := make(map[string][]Vec)
+  for _, corner := range corners {
+    cornerIdStr := strconv.Itoa(corner.Id)
+    _, idInMap := papersMap[cornerIdStr]
+    cornerDotVec := Vec{corner.corner.X, corner.corner.Y}
+    if idInMap {
+      papersMap[cornerIdStr] = append(papersMap[cornerIdStr], cornerDotVec)
+    } else {
+      papersMap[cornerIdStr] = []Vec{cornerDotVec}
+    }
+  }
+  // fmt.Println(papersMap)
+  papers := make([]Paper, 0)
+  for id := range papersMap {
+    papers = append(papers, Paper{id, papersMap[id]})
+  }
+  return papers
 }
 
 func printDots(data []Dot) {
@@ -182,10 +232,14 @@ func getGetPaperIdFromColors(colors [][3]int) int {
 	var colorString string
 
   calibrationColors := make([][3]int, 4)
-  calibrationColors[0] = [3]int{204, 98, 107}  // red
-  calibrationColors[1] = [3]int{200, 186, 167}  // green
-  calibrationColors[2] = [3]int{176, 170, 198}  // blue
-  calibrationColors[3] = [3]int{125, 91, 107}  // dark
+  calibrationColors[0] = [3]int{202, 61, 79}  // red
+  calibrationColors[1] = [3]int{162, 156, 118}  // green
+  calibrationColors[2] = [3]int{126, 148, 191}  // blue
+  calibrationColors[3] = [3]int{85, 58, 94}  // dark
+  // calibrationColors[0] = [3]int{204, 98, 107}  // red
+  // calibrationColors[1] = [3]int{200, 186, 167}  // green
+  // calibrationColors[2] = [3]int{176, 170, 198}  // blue
+  // calibrationColors[3] = [3]int{125, 91, 107}  // dark
 
 	for _, colorData := range colors {
 		minIndex := 0
@@ -239,6 +293,47 @@ func doStep4CornersWithIds(nodes []Dot, corners []Corner) []Corner {
 		results = append(results, newCorner)
 	}
 	return results
+}
+
+func getDots() []Dot {
+  fmt.Println("Connecting to hello world server...")
+	requester, _ := zmq.NewSocket(zmq.REQ)
+	defer requester.Close()
+	requester.Connect("tcp://localhost:5555")
+
+  msg := "{\"event\": \"when\", \"options\": {\"source\": \"global\", \"key\": \"dots\"}}"
+  fmt.Println("Sending ", msg)
+  requester.Send(msg, 0)
+
+  reply, _ := requester.Recv(0)
+  fmt.Println("Received len: ", len(reply))
+	// fmt.Println("Received ", reply)
+
+  res := make([]Dot, 0)
+	json.Unmarshal([]byte(reply), &res)
+  return res
+}
+
+func claimPapers(papers []Paper) {
+  fmt.Println("Connecting to hello world server...")
+	requester, _ := zmq.NewSocket(zmq.REQ)
+	defer requester.Close()
+	requester.Connect("tcp://localhost:5555")
+
+  // send hello
+  papersAlmostStr, _ := json.Marshal(papers)
+  papersStr := string(papersAlmostStr)
+  fmt.Println(papersStr)
+  msg := fmt.Sprintf(
+    "{\"event\": \"claim\", \"options\": {\"source\": \"global\", \"key\": \"papers\", \"value\": %s}}",
+    papersStr,
+  )
+  fmt.Println("Sending ", msg)
+  requester.Send(msg, 0)
+
+  // Wait for reply:
+	reply, _ := requester.Recv(0)
+	fmt.Println("Received ", reply)
 }
 
 func getPoints() []Dot {
