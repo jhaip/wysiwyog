@@ -4,6 +4,9 @@ import "encoding/json"
 import "fmt"
 import "math"
 import "strings"
+import "strconv"
+import "image/color"
+import "github.com/mattn/go-ciede2000"
 
 type Vec struct {
 	X int
@@ -166,17 +169,53 @@ func doStep3(nodes []Dot, corners []Corner) []Corner {
 	return results
 }
 
+func indexOf(word string, data []string) int {
+	for k, v := range data {
+		if word == v {
+			return k
+		}
+	}
+	return -1
+}
+
 func getGetPaperIdFromColors(colors [][3]int) int {
-  /*
-  const mappedColors = colors.map(x => ({R: x[0], G: x[1], B: x[2]}))
-    const result = colorDiff.map_palette(mappedColors, referencePalette)
-    const map2 = mappedColors.map(x => result[`R${x.R}B${x.B}G${x.G}`])
-    const id = map2.map(x => pureColors[getKeyByValue(calibrations, x)]).join("")
-    if (code8400.indexOf(id) >= 0) {
-      return code8400.indexOf(id) % (code8400.length / 4);
-    }
-    return null;
-  */
+	var colorString string
+
+  calibrationColors := make([][3]int, 4)
+  calibrationColors[0] = [3]int{204, 98, 107}  // red
+  calibrationColors[1] = [3]int{200, 186, 167}  // green
+  calibrationColors[2] = [3]int{176, 170, 198}  // blue
+  calibrationColors[3] = [3]int{125, 91, 107}  // dark
+
+	for _, colorData := range colors {
+		minIndex := 0
+		minValue := 99999.0
+		for i, calibrationColorData := range calibrationColors {
+			c1 := &color.RGBA{
+        uint8(colorData[0]),
+        uint8(colorData[1]),
+        uint8(colorData[2]),
+        255,
+      }
+			c2 := &color.RGBA{
+        uint8(calibrationColorData[0]),
+        uint8(calibrationColorData[1]),
+        uint8(calibrationColorData[2]),
+        255,
+      }
+			value := ciede2000.Diff(c1, c2)
+			if i == 0 || value < minValue {
+				minIndex = i
+				minValue = value
+			}
+		}
+		colorString += strconv.Itoa(minIndex)
+	}
+  fmt.Printf("%v \n", colorString)
+  colors8400Index := indexOf(colorString, get8400())
+  if colors8400Index > 0 {
+    return colors8400Index % (8400 / 4)
+  }
 	return -1
 }
 
