@@ -22,3 +22,7 @@ Switching to go because OpenGL and shader support in wxPython is a mess.
 
 [Go ZeroMQ v4 bindings](https://github.com/pebbe/zmq4)
 [hwclient](https://github.com/pebbe/zmq4/blob/master/examples/hwclient.go)
+
+**5/5/18**
+
+May be useful for speeding up Python OpenCV SimpleBlobDetector using GetContours instead with `faster` option. https://stackoverflow.com/questions/42203898/python-opencv-blob-detection-or-circle-detection
