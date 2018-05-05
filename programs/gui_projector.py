@@ -4,11 +4,14 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+CAM_WIDTH = 1920
+CAM_HEIGHT = 1080
+
 class Example(wx.Frame):
     ID_TIMER = 1
     def __init__(self, parent, title):
         super(Example, self).__init__(parent, title=title,
-            size=(1280, 720))
+            size=(CAM_WIDTH, CAM_HEIGHT))
 
         self.Bind(wx.EVT_PAINT, self.OnPaint)
 
@@ -18,13 +21,14 @@ class Example(wx.Frame):
         self.i = 0
         self.bmp = None
         self.dots = []
+        self.papers = []
 
         self.M = RPCClient.RPCClient()
 
         self.timer = wx.Timer(self, Example.ID_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnTimer, id=Example.ID_TIMER)
 
-        fps = 1
+        fps = 10
         self.timer.Start(1000./fps)
 
     def OnPaint(self, e):
@@ -47,6 +51,12 @@ class Example(wx.Frame):
             dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
             s = 3
             dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
+        for paper in self.papers:
+            font =  dc.GetFont()
+            font.SetWeight(wx.FONTWEIGHT_BOLD)
+            dc.SetFont(font)
+            for corner in paper["corners"]:
+                dc.DrawText(paper["id"], corner["x"], corner["y"])
 
     def OnTimer(self, event):
         if event.GetId() == Example.ID_TIMER:
@@ -61,12 +71,19 @@ class Example(wx.Frame):
             # wxImg = wx.Image()
             image_string = self.M.get_image()
             # wxImg.SetData(image_string)
-            wxImg = wx.ImageFromBuffer(1280, 720, image_string)  # TODO: don't harcode size
+            wxImg = wx.ImageFromBuffer(CAM_WIDTH, CAM_HEIGHT, image_string)
             logging.info("got frame")
+
             def receiveDots(dots):
                 self.dots = dots
             dots = self.M.when("global", "dots", receiveDots)
             logging.info("got dots %s" % len(self.dots))
+
+            def receivePapers(papers):
+                self.papers = papers
+            self.M.when("global", "papers", receivePapers)
+            logging.info("got papers %s" % len(self.papers))
+
             self.bmp = wxImg.ConvertToBitmap()
 
             self.Refresh()
