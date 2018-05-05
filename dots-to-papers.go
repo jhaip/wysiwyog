@@ -29,12 +29,19 @@ type Corner struct {
 	corner Dot
 	lines  [][]int
 	sides  [][]int
-	Id     int
+	PaperId     int
+  CornerId     int
+}
+
+type PaperCorner struct {
+  X int `json:"x"`
+	Y int `json:"y"`
+  CornerId     int
 }
 
 type Paper struct {
-  Id        string    `json:"id"`
-  Corners   []Vec     `json:"corners"`
+  Id        string        `json:"id"`
+  Corners   []PaperCorner `json:"corners"`
 }
 
 const CAM_WIDTH = 1920
@@ -56,7 +63,7 @@ func main() {
   	step3 := doStep3(step1, step2)
   	// printCorners(step3)
   	step4 := doStep4CornersWithIds(step1, step3)
-  	printCorners(step4)
+  	// printCorners(step4)
     papers := getPapersFromCorners(step4)
     fmt.Println(papers)
 
@@ -73,21 +80,23 @@ func main() {
 }
 
 func getPapersFromCorners(corners []Corner) []Paper {
-  papersMap := make(map[string][]Vec)
+  papersMap := make(map[string][]PaperCorner)
   for _, corner := range corners {
-    cornerIdStr := strconv.Itoa(corner.Id)
+    cornerIdStr := strconv.Itoa(corner.PaperId)
     _, idInMap := papersMap[cornerIdStr]
-    cornerDotVec := Vec{corner.corner.X, corner.corner.Y}
+    cornerDotVec := PaperCorner{corner.corner.X, corner.corner.Y, corner.CornerId}
     if idInMap {
       papersMap[cornerIdStr] = append(papersMap[cornerIdStr], cornerDotVec)
     } else {
-      papersMap[cornerIdStr] = []Vec{cornerDotVec}
+      papersMap[cornerIdStr] = []PaperCorner{cornerDotVec}
     }
   }
   // fmt.Println(papersMap)
   papers := make([]Paper, 0)
   for id := range papersMap {
-    papers = append(papers, Paper{id, papersMap[id]})
+    if id != "-1" {
+      papers = append(papers, Paper{id, papersMap[id]})
+    }
   }
   return papers
 }
@@ -103,7 +112,7 @@ func printDots(data []Dot) {
 func printCorners(data []Corner) {
 	s := make([]string, len(data))
 	for i, d := range data {
-		s[i] = fmt.Sprintf("%v \t %v \t %v \t %v", d.corner, d.lines, d.sides, d.Id)
+		s[i] = fmt.Sprintf("%v \t %v \t %v \t %v \t %v", d.corner, d.lines, d.sides, d.PaperId, d.CornerId)
 	}
 	fmt.Println(strings.Join(s, "\n"))
 }
@@ -228,14 +237,20 @@ func indexOf(word string, data []string) int {
 	return -1
 }
 
-func getGetPaperIdFromColors(colors [][3]int) int {
+func getGetPaperIdFromColors(colors [][3]int) (int, int) {
 	var colorString string
 
   calibrationColors := make([][3]int, 4)
-  calibrationColors[0] = [3]int{202, 61, 79}  // red
-  calibrationColors[1] = [3]int{162, 156, 118}  // green
-  calibrationColors[2] = [3]int{126, 148, 191}  // blue
-  calibrationColors[3] = [3]int{85, 58, 94}  // dark
+  calibrationColors[0] = [3]int{186, 119, 167}  // red
+  calibrationColors[1] = [3]int{69, 173, 183}  // green
+  calibrationColors[2] = [3]int{2, 161, 217}  // blue
+  calibrationColors[3] = [3]int{1, 75, 141}  // dark
+
+  // calibrationColors[0] = [3]int{202, 61, 79}  // red
+  // calibrationColors[1] = [3]int{162, 156, 118}  // green
+  // calibrationColors[2] = [3]int{126, 148, 191}  // blue
+  // calibrationColors[3] = [3]int{85, 58, 94}  // dark
+
   // calibrationColors[0] = [3]int{204, 98, 107}  // red
   // calibrationColors[1] = [3]int{200, 186, 167}  // green
   // calibrationColors[2] = [3]int{176, 170, 198}  // blue
@@ -268,9 +283,11 @@ func getGetPaperIdFromColors(colors [][3]int) int {
   fmt.Printf("%v \n", colorString)
   colors8400Index := indexOf(colorString, get8400())
   if colors8400Index > 0 {
-    return colors8400Index % (8400 / 4)
+    paperId := colors8400Index % (8400 / 4)
+    cornerId := colors8400Index / (8400 / 4)
+    return paperId, cornerId
   }
-	return -1
+	return -1, -1
 }
 
 func lineToColors(nodes []Dot, line []int, shouldReverse bool) [][3]int {
@@ -289,7 +306,9 @@ func doStep4CornersWithIds(nodes []Dot, corners []Corner) []Corner {
 	results := make([]Corner, 0)
 	for _, corner := range corners {
 		newCorner := corner
-		newCorner.Id = getGetPaperIdFromColors(append(append(lineToColors(nodes, corner.sides[0], true), corner.corner.Color), lineToColors(nodes, corner.sides[1], false)...))
+    paperId, cornerId := getGetPaperIdFromColors(append(append(lineToColors(nodes, corner.sides[0], true), corner.corner.Color), lineToColors(nodes, corner.sides[1], false)...))
+		newCorner.PaperId = paperId
+    newCorner.CornerId = cornerId
 		results = append(results, newCorner)
 	}
 	return results
@@ -306,8 +325,8 @@ func getDots() []Dot {
   requester.Send(msg, 0)
 
   reply, _ := requester.Recv(0)
-  fmt.Println("Received len: ", len(reply))
-	// fmt.Println("Received ", reply)
+  // fmt.Println("Received len: ", len(reply))
+	fmt.Println("Received ", reply)
 
   res := make([]Dot, 0)
 	json.Unmarshal([]byte(reply), &res)
