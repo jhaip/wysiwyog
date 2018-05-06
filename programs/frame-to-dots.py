@@ -9,7 +9,7 @@ CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
 
 class ShowCapture(wx.Panel):
-    def __init__(self, parent, capture, fps=1):
+    def __init__(self, parent, capture, fps=10):
         wx.Panel.__init__(self, parent)
 
         self.capture = capture
@@ -23,13 +23,20 @@ class ShowCapture(wx.Panel):
         self.dots = []
 
         self.projector_calibration_state = None
-        self.projector_calibration = [(50, 50), (CAM_WIDTH-50, 50),
-                                      (CAM_WIDTH-50, CAM_HEIGHT-50),
-                                      (50, CAM_HEIGHT-50)]
+
 
         self.M = RPCClient.RPCClient()
 
-        self.M.claim("global", "projector_calibration", self.projector_calibration)
+        def receiveProjectorCalibration(cal):
+            if cal:
+                self.projector_calibration = cal
+            else:
+                logging.error("no projector cal, using default")
+                self.projector_calibration = [(50, 50), (CAM_WIDTH-50, 50),
+                                              (CAM_WIDTH-50, CAM_HEIGHT-50),
+                                              (50, CAM_HEIGHT-50)]
+                self.M.claim("global", "projector_calibration", self.projector_calibration)
+        self.M.when("global", "projector_calibration", receiveProjectorCalibration)
 
         self.timer = wx.Timer(self)
         self.timer.Start(1000./fps)
