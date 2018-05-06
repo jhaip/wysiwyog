@@ -44,6 +44,10 @@ class Example(wx.Frame):
         # dc.DrawText('Historical Prices', 90, 235)
 
         dc = wx.BufferedPaintDC(self)
+        dc.SetBrush(wx.Brush())
+        font =  dc.GetFont()
+        font.SetWeight(wx.FONTWEIGHT_BOLD)
+        dc.SetFont(font)
         if self.bmp:
             dc.DrawBitmap(self.bmp, 0, 0)
         for dot in self.dots:
@@ -51,27 +55,27 @@ class Example(wx.Frame):
             dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
             s = 3
             dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
-        for paper in self.papers:
-            dc.SetPen(wx.NullPen)
-            dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0, 99)))  # transparent green
-            if len(paper["corners"]) == 4:
-                tri1 = []
-                tri2 = []
+        if self.papers:
+            for paper in self.papers:
+                dc.SetPen(wx.NullPen)
+                dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0, 99)))  # transparent green
+                if len(paper["corners"]) == 4:
+                    tri1 = []
+                    tri2 = []
+                    for corner in paper["corners"]:
+                        if corner["CornerId"] in [0,1,2]:
+                            tri1.append(corner)
+                        if corner["CornerId"] in [2,3,0]:
+                            tri2.append(corner)
+                    dc.DrawPolygon(list(map(lambda c: (c["x"], c["y"]), tri1)))
+                    dc.DrawPolygon(list(map(lambda c: (c["x"], c["y"]), tri2)))
+                if len(paper["corners"]) == 3:
+                    tri1 = paper["corners"]
+                    dc.DrawPolygon(list(map(lambda c: (c["x"], c["y"]), tri1)))
                 for corner in paper["corners"]:
-                    if corner["CornerId"] in [0,1,2]:
-                        tri1.append(corner)
-                    if corner["CornerId"] in [2,3,0]:
-                        tri2.append(corner)
-                dc.DrawPolygon(list(map(lambda c: (c["x"], c["y"]), tri1)))
-                dc.DrawPolygon(list(map(lambda c: (c["x"], c["y"]), tri2)))
-            if len(paper["corners"]) == 3:
-                tri1 = paper["corners"]
-                dc.DrawPolygon(list(map(lambda c: (c["x"], c["y"]), tri1)))
-            font =  dc.GetFont()
-            font.SetWeight(wx.FONTWEIGHT_BOLD)
-            dc.SetFont(font)
-            for corner in paper["corners"]:
-                dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), corner["x"], corner["y"])
+                    dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), corner["x"], corner["y"])
+
+
 
     def OnTimer(self, event):
         if event.GetId() == Example.ID_TIMER:
@@ -97,7 +101,8 @@ class Example(wx.Frame):
             def receivePapers(papers):
                 self.papers = papers
             self.M.when("global", "papers", receivePapers)
-            logging.info("got papers %s" % len(self.papers))
+            if self.papers:
+                logging.info("got papers %s" % len(self.papers))
 
             self.bmp = wxImg.ConvertToBitmap()
 
