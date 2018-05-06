@@ -29,6 +29,8 @@ class ShowCapture(wx.Panel):
 
         self.M = RPCClient.RPCClient()
 
+        self.M.claim("global", "projector_calibration", self.projector_calibration)
+
         self.timer = wx.Timer(self)
         self.timer.Start(1000./fps)
 
@@ -124,10 +126,12 @@ class ShowCapture(wx.Panel):
             prev = self.projector_calibration[self.projector_calibration_state]
             next = (prev[0] + dx, prev[1] + dy)
             self.projector_calibration[self.projector_calibration_state] = next
+            self.M.claim("global", "projector_calibration", self.projector_calibration)
 
     def moveCurrentCalibrationPoint(self, pt):
         if self.projector_calibration_state is not None:
-            self.projector_calibration[self.projector_calibration_state] = pt
+            self.projector_calibration[self.projector_calibration_state] = (pt[0], pt[1])
+            self.M.claim("global", "projector_calibration", self.projector_calibration)
 
     def changeCurrentCalibrationPoint(self, key):
         if key == '`':
