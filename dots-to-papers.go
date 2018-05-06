@@ -75,7 +75,7 @@ func main() {
     fmt.Printf("processing: %s \n", timeProcessing)
     fmt.Printf("total     : %s \n", elapsed)
 
-    time.Sleep(1 * time.Second)
+    time.Sleep(10 * time.Millisecond)
   }
 }
 
@@ -241,10 +241,10 @@ func getGetPaperIdFromColors(colors [][3]int) (int, int) {
 	var colorString string
 
   calibrationColors := make([][3]int, 4)
-  calibrationColors[0] = [3]int{186, 119, 167}  // red
-  calibrationColors[1] = [3]int{69, 173, 183}  // green
-  calibrationColors[2] = [3]int{2, 161, 217}  // blue
-  calibrationColors[3] = [3]int{1, 75, 141}  // dark
+  calibrationColors[0] = [3]int{123, 59, 56}  // red
+  calibrationColors[1] = [3]int{120, 118, 95}  // green
+  calibrationColors[2] = [3]int{103, 107, 128}  // blue
+  calibrationColors[3] = [3]int{56, 42, 47}  // dark
 
   // calibrationColors[0] = [3]int{202, 61, 79}  // red
   // calibrationColors[1] = [3]int{162, 156, 118}  // green
