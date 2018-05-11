@@ -4,6 +4,7 @@ import cv2
 import time
 import json
 import RPCClient
+import logging
 
 CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
