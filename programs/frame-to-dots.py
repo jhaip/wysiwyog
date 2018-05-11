@@ -91,10 +91,12 @@ class ShowCapture(wx.Panel):
 
             start = time.time()
             params = cv2.SimpleBlobDetector_Params()
+            params.minThreshold = 10
+            params.maxThreshold = 240
             params.filterByCircularity = True
-            params.minCircularity = 0.9
+            params.minCircularity = 0.5
             params.filterByArea = True
-            params.minArea = 25
+            params.minArea = 12
             params.filterByInertia = False
             is_v2 = cv2.__version__.startswith("2.")
             if is_v2:
