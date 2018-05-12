@@ -34,6 +34,8 @@ class Master:
         return list(filter(lambda w: str(w.get("type")) == str(type), self.wishes))
 
     def wish(self, type, source, action):
+        type = str(type)
+        source = str(source)
         self.clear_wishes({"type": type, "source": source})
         self.wishes.append({
             "id": str(uuid.uuid4()),

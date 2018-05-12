@@ -130,7 +130,7 @@ class Example(wx.Frame):
             for wish in wishes:
                 self.draw_wishes.append("%s %s" % (wish["source"], wish["action"],))
             # logging.info("PROJECTION: " + str(result))
-            self.M.clear_wishes({"type": "DRAW"})
+            # self.M.clear_wishes({"type": "DRAW"})
             # self.i += 2
             # wxImg = wx.Image()
             image_string = self.M.get_image()

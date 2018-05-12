@@ -12,6 +12,8 @@ def when_fox(fox):
     logging.info("Inside when fox")
     if fox == "out":
         M.wish("DRAW", id, "The fox is out!")
+    else:
+        M.clear_wishes({"source": id})
 
 
 M.when(1054, "fox", when_fox)
