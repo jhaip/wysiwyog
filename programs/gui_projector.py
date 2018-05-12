@@ -36,7 +36,7 @@ class Example(wx.Frame):
         self.timer = wx.Timer(self, Example.ID_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnTimer, id=Example.ID_TIMER)
 
-        fps = 4
+        fps = 20
         self.timer.Start(1000./fps)
 
     def OnPaint(self, e):
@@ -133,32 +133,32 @@ class Example(wx.Frame):
             # self.M.clear_wishes({"type": "DRAW"})
             # self.i += 2
             # wxImg = wx.Image()
-            image_string = self.M.get_image()
-            # wxImg.SetData(image_string)
-            wxImg = wx.ImageFromBuffer(CAM_WIDTH, CAM_HEIGHT, image_string)
-            logging.info("got frame")
+            # image_string = self.M.get_image()
+            # # wxImg.SetData(image_string)
+            # wxImg = wx.ImageFromBuffer(CAM_WIDTH, CAM_HEIGHT, image_string)
+            # logging.info("got frame")
 
             def receiveDots(dots):
                 self.dots = dots
             dots = self.M.when("global", "dots", receiveDots)
-            logging.info("got dots %s" % len(self.dots))
+            # logging.info("got dots %s" % len(self.dots))
 
             def receivePapers(papers):
                 self.papers = papers
             self.M.when("global", "papers", receivePapers)
-            if self.papers:
-                logging.info("got papers %s" % len(self.papers))
+            # if self.papers:
+            #     logging.info("got papers %s" % len(self.papers))
 
             def receiveCorners(corners):
                 self.corners = corners
             self.M.when("global", "corners", receiveCorners)
-            if self.corners:
-                logging.info("got corners %s" % len(self.corners))
+            # if self.corners:
+            #     logging.info("got corners %s" % len(self.corners))
 
             def receiveProjectorCalibration(cal):
                 self.projector_calibration = cal
             self.M.when("global", "projector_calibration", receiveProjectorCalibration)
-            logging.info("got projector_calibration %s" % self.projector_calibration)
+            # logging.info("got projector_calibration %s" % self.projector_calibration)
 
             if self.projector_calibration and len(self.projector_calibration) is 4:
                 pts1 = np.float32(self.projector_calibration)
@@ -174,12 +174,12 @@ class Example(wx.Frame):
                 # logging.info(dst)
                 # logging.info(list(map(lambda x: [int(x[0]), int(x[1])], dst[0])))
 
-            self.bmp = wxImg.ConvertToBitmap()
+            # self.bmp = wxImg.ConvertToBitmap()
 
             self.Refresh()
 
             end = time.time()
-            print(end - start)
+            print(end - start, 1.0/(end - start), "fps")
         else:
             event.Skip()
 
