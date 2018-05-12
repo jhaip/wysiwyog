@@ -1,20 +1,23 @@
 # Example from https://stackoverflow.com/questions/14804741/opencv-integration-with-wxpython
 import wx
+from imutils.video import WebcamVideoStream
+import imutils
 import cv2
 import time
 import json
 import RPCClient
 import logging
 
+
 CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
 
 class ShowCapture(wx.Panel):
-    def __init__(self, parent, capture, fps=4):
+    def __init__(self, parent, capture, fps=15):
         wx.Panel.__init__(self, parent)
 
         self.capture = capture
-        ret, frame = self.capture.read()
+        ret, frame = (True, self.capture.read())
 
         height, width = frame.shape[:2]
         parent.SetSize((width, height))
@@ -87,13 +90,14 @@ class ShowCapture(wx.Panel):
             dc.DrawText("EDITING CORNER " + str(self.projector_calibration_state), CAM_WIDTH/2, CAM_HEIGHT/2)
 
     def NextFrame(self, event):
-        ret, frame = self.capture.read()
+        start = time.time()
+
+        ret, frame = (True, self.capture.read())
         if ret:
-            start = time.time()
 
             params = cv2.SimpleBlobDetector_Params()
-            params.minThreshold = 10
-            params.maxThreshold = 240
+            params.minThreshold = 150
+            params.maxThreshold = 200
             params.filterByCircularity = True
             params.minCircularity = 0.5
             params.filterByArea = True
@@ -111,8 +115,11 @@ class ShowCapture(wx.Panel):
             def keypointMapFunc(keypoint):
                 # color = frame[int(keypoint.pt[1]), int(keypoint.pt[0])]
                 colorSum = [0, 0, 0]
-                for i in range(-1, 2):
-                    for j in range(-1, 2):
+                N_H_SAMPLES = 1
+                N_V_SAMPLES = 1
+                TOTAL_SAMPLES = (2*N_H_SAMPLES+1) * (2*N_V_SAMPLES+1)
+                for i in range(-N_H_SAMPLES, N_H_SAMPLES+1):
+                    for j in range(-N_V_SAMPLES, N_V_SAMPLES+1):
                         color = frame[int(keypoint.pt[1])+i, int(keypoint.pt[0])+j]
                         colorSum[0] += int(color[0])
                         colorSum[1] += int(color[1])
@@ -120,23 +127,25 @@ class ShowCapture(wx.Panel):
                 return {
                     "x": int(keypoint.pt[0]),
                     "y": int(keypoint.pt[1]),
-                    "color": [int(colorSum[2]/9), int(colorSum[1]/9), int(colorSum[0]/9)]
+                    "color": [int(colorSum[2]/TOTAL_SAMPLES),
+                              int(colorSum[1]/TOTAL_SAMPLES),
+                              int(colorSum[0]/TOTAL_SAMPLES)]
                 }
             self.dots = list(map(keypointMapFunc, keypoints))
             # print(self.dots)
             self.M.claim("global", "dots", self.dots)
 
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            self.bmp.CopyFromBuffer(frame)
+            # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            # self.bmp.CopyFromBuffer(frame)
 
-            img = wx.Bitmap.ConvertToImage( self.bmp )
-            img_str = img.GetData()
-            self.M.set_image(img_str)
+            # img = wx.Bitmap.ConvertToImage( self.bmp )
+            # img_str = img.GetData()
+            # self.M.set_image(img_str)
 
-            end = time.time()
-            print(end - start)
+            # self.Refresh()
 
-            self.Refresh()
+        end = time.time()
+        print(end - start, 1.0/(end - start), "fps")
 
     def moveCurrentCalibrationPointRel(self, dx, dy):
         if self.projector_calibration_state is not None:
@@ -177,9 +186,10 @@ class ShowCapture(wx.Panel):
             self.moveCurrentCalibrationPoint(pt)
 
 
-capture = cv2.VideoCapture(0)
-capture.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
-capture.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
+# capture = cv2.VideoCapture(0)
+# capture.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
+# capture.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
+capture = WebcamVideoStream(src=0).start()
 
 app = wx.App()
 frame = wx.Frame(None)
