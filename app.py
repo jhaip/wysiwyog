@@ -5,7 +5,7 @@ import json
 import psutil
 import uuid
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.ERROR)
 
 context = zmq.Context()
 string_socket = context.socket(zmq.REP)
