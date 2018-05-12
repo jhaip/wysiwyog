@@ -1,5 +1,6 @@
 import wx
 import cv2
+import time
 import RPCClient
 import logging
 import numpy as np
@@ -28,13 +29,14 @@ class Example(wx.Frame):
         self.papers = []
         self.projector_calibration = []
         self.projection_matrix = None
+        self.draw_wishes = []
 
         self.M = RPCClient.RPCClient()
 
         self.timer = wx.Timer(self, Example.ID_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnTimer, id=Example.ID_TIMER)
 
-        fps = 10
+        fps = 4
         self.timer.Start(1000./fps)
 
     def OnPaint(self, e):
@@ -64,64 +66,71 @@ class Example(wx.Frame):
         #     dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
         #     s = 3
         #     dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
-        # if self.papers:
-        #     for paper in self.papers:
-        #         dc.SetPen(wx.NullPen)
-        #         dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0, 99)))  # transparent green
-        #         if len(paper["corners"]) == 4:
-        #             tri1 = []
-        #             tri2 = []
-        #             for corner in paper["corners"]:
-        #                 if corner["CornerId"] in [0,1,2]:
-        #                     tri1.append(corner)
-        #                 if corner["CornerId"] in [2,3,0]:
-        #                     tri2.append(corner)
-        #             dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
-        #             dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
-        #         if len(paper["corners"]) == 3:
-        #             tri1 = paper["corners"]
-        #             pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
-        #             dc.DrawPolygon(pts)
-        #         for corner in paper["corners"]:
-        #             textPt = self.project([(corner["x"], corner["y"])])[0]
-        #             dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), textPt[0], textPt[1])
-        if self.corners:
-            for corner in self.corners:
+        if self.papers:
+            for paper in self.papers:
                 dc.SetPen(wx.NullPen)
-                dc.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
-                dc.DrawText(corner["colorString"], corner["corner"]["x"], corner["corner"]["y"]+20)
-                step = 10
-                s = 3
-                for i, c in enumerate(corner["colorString"]):
-                    raw_color = corner["rawColorsList"][i]
-                    dc.SetBrush(wx.Brush(wx.Colour(*raw_color)))
-                    dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]-s, s*2, s*2)
-                    if c == '0':
-                        dc.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
-                    elif c == '1':
-                        dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0)))
-                    elif c == '2':
-                        dc.SetBrush(wx.Brush(wx.Colour(0, 0, 255)))
-                    elif c == '3':
-                        dc.SetBrush(wx.Brush(wx.Colour(200, 200, 200)))
-                    dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]+10-s, s*2, s*2)
+                dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0, 99)))  # transparent green
+                if len(paper["corners"]) == 4:
+                    tri1 = []
+                    tri2 = []
+                    for corner in paper["corners"]:
+                        if corner["CornerId"] in [0,1,2]:
+                            tri1.append(corner)
+                        if corner["CornerId"] in [2,3,0]:
+                            tri2.append(corner)
+                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
+                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
+                if len(paper["corners"]) == 3:
+                    tri1 = paper["corners"]
+                    pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
+                    dc.DrawPolygon(pts)
+                for corner in paper["corners"]:
+                    textPt = self.project([(corner["x"], corner["y"])])[0]
+                    dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), textPt[0], textPt[1])
+        # if self.corners:
+        #     for corner in self.corners:
+        #         dc.SetPen(wx.NullPen)
+        #         dc.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
+        #         dc.DrawText(corner["colorString"], corner["corner"]["x"], corner["corner"]["y"]+20)
+        #         step = 10
+        #         s = 3
+        #         for i, c in enumerate(corner["colorString"]):
+        #             raw_color = corner["rawColorsList"][i]
+        #             dc.SetBrush(wx.Brush(wx.Colour(*raw_color)))
+        #             dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]-s, s*2, s*2)
+        #             if c == '0':
+        #                 dc.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
+        #             elif c == '1':
+        #                 dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0)))
+        #             elif c == '2':
+        #                 dc.SetBrush(wx.Brush(wx.Colour(0, 0, 255)))
+        #             elif c == '3':
+        #                 dc.SetBrush(wx.Brush(wx.Colour(200, 200, 200)))
+        #             dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]+10-s, s*2, s*2)
+        if self.draw_wishes:
+            for i, w in enumerate(self.draw_wishes):
+                dc.DrawText(w, 20, 20 + 20*i)
 
     def project(self, pts):
         if self.projection_matrix is not None:
-            dst = cv2.perspectiveTransform(np.array([np.float32(pts)]), self.projection_matrix)
-            return list(map(lambda x: [int(x[0]), int(x[1])], dst[0]))
+            return pts
+            # dst = cv2.perspectiveTransform(np.array([np.float32(pts)]), self.projection_matrix)
+            # return list(map(lambda x: [int(x[0]), int(x[1])], dst[0]))
         logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
         return None
 
     def OnTimer(self, event):
         if event.GetId() == Example.ID_TIMER:
-            # wishes = self.M.get_wishes_by_type("DRAW")
-            # # logging.info("PROJECTOR: " + str(wishes))
-            # result = {}
-            # for wish in wishes:
-            #     result[wish["source"]] = result.get(wish["source"], '') + wish["action"]
+
+            start = time.time()
+
+            wishes = self.M.get_wishes_by_type("DRAW")
+            # logging.info("PROJECTOR: " + str(wishes))
+            self.draw_wishes = ["test"]
+            for wish in wishes:
+                self.draw_wishes.append("%s %s" % (wish["source"], wish["action"],))
             # logging.info("PROJECTION: " + str(result))
-            # self.M.clear_wishes({"type": "DRAW"})
+            self.M.clear_wishes({"type": "DRAW"})
             # self.i += 2
             # wxImg = wx.Image()
             image_string = self.M.get_image()
@@ -156,18 +165,21 @@ class Example(wx.Frame):
                 pts2 = np.float32([[0,0],[CAM_WIDTH,0],[CAM_WIDTH,CAM_HEIGHT],[0,CAM_HEIGHT]])
                 self.projection_matrix = cv2.getPerspectiveTransform(pts1, pts2)
 
-                logging.info("CONVERT PERSPECTIVE")
-                logging.info(self.projection_matrix)
-                logging.info(np.float32(self.projector_calibration))
-
-                dst = cv2.perspectiveTransform(np.array([np.float32(self.projector_calibration)]), self.projection_matrix)
-                logging.info("IDENTITY?")
-                logging.info(dst)
-                logging.info(list(map(lambda x: [int(x[0]), int(x[1])], dst[0])))
+                # logging.info("CONVERT PERSPECTIVE")
+                # logging.info(self.projection_matrix)
+                # logging.info(np.float32(self.projector_calibration))
+                #
+                # dst = cv2.perspectiveTransform(np.array([np.float32(self.projector_calibration)]), self.projection_matrix)
+                # logging.info("IDENTITY?")
+                # logging.info(dst)
+                # logging.info(list(map(lambda x: [int(x[0]), int(x[1])], dst[0])))
 
             self.bmp = wxImg.ConvertToBitmap()
 
             self.Refresh()
+
+            end = time.time()
+            print(end - start)
         else:
             event.Skip()
 

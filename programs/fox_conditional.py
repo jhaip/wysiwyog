@@ -14,4 +14,4 @@ def when_fox(fox):
         M.wish("DRAW", id, "The fox is out!")
 
 
-M.when(4, "fox", when_fox)
+M.when(1054, "fox", when_fox)
