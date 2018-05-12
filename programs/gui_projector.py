@@ -24,6 +24,7 @@ class Example(wx.Frame):
         self.i = 0
         self.bmp = None
         self.dots = []
+        self.corners = []
         self.papers = []
         self.projector_calibration = []
         self.projection_matrix = None
@@ -63,27 +64,47 @@ class Example(wx.Frame):
         #     dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
         #     s = 3
         #     dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
-        if self.papers:
-            for paper in self.papers:
+        # if self.papers:
+        #     for paper in self.papers:
+        #         dc.SetPen(wx.NullPen)
+        #         dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0, 99)))  # transparent green
+        #         if len(paper["corners"]) == 4:
+        #             tri1 = []
+        #             tri2 = []
+        #             for corner in paper["corners"]:
+        #                 if corner["CornerId"] in [0,1,2]:
+        #                     tri1.append(corner)
+        #                 if corner["CornerId"] in [2,3,0]:
+        #                     tri2.append(corner)
+        #             dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
+        #             dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
+        #         if len(paper["corners"]) == 3:
+        #             tri1 = paper["corners"]
+        #             pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
+        #             dc.DrawPolygon(pts)
+        #         for corner in paper["corners"]:
+        #             textPt = self.project([(corner["x"], corner["y"])])[0]
+        #             dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), textPt[0], textPt[1])
+        if self.corners:
+            for corner in self.corners:
                 dc.SetPen(wx.NullPen)
-                dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0, 99)))  # transparent green
-                if len(paper["corners"]) == 4:
-                    tri1 = []
-                    tri2 = []
-                    for corner in paper["corners"]:
-                        if corner["CornerId"] in [0,1,2]:
-                            tri1.append(corner)
-                        if corner["CornerId"] in [2,3,0]:
-                            tri2.append(corner)
-                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
-                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
-                if len(paper["corners"]) == 3:
-                    tri1 = paper["corners"]
-                    pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
-                    dc.DrawPolygon(pts)
-                for corner in paper["corners"]:
-                    textPt = self.project([(corner["x"], corner["y"])])[0]
-                    dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), textPt[0], textPt[1])
+                dc.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
+                dc.DrawText(corner["colorString"], corner["corner"]["x"], corner["corner"]["y"]+20)
+                step = 10
+                s = 3
+                for i, c in enumerate(corner["colorString"]):
+                    raw_color = corner["rawColorsList"][i]
+                    dc.SetBrush(wx.Brush(wx.Colour(*raw_color)))
+                    dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]-s, s*2, s*2)
+                    if c == '0':
+                        dc.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
+                    elif c == '1':
+                        dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0)))
+                    elif c == '2':
+                        dc.SetBrush(wx.Brush(wx.Colour(0, 0, 255)))
+                    elif c == '3':
+                        dc.SetBrush(wx.Brush(wx.Colour(200, 200, 200)))
+                    dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]+10-s, s*2, s*2)
 
     def project(self, pts):
         if self.projection_matrix is not None:
@@ -118,6 +139,12 @@ class Example(wx.Frame):
             self.M.when("global", "papers", receivePapers)
             if self.papers:
                 logging.info("got papers %s" % len(self.papers))
+
+            def receiveCorners(corners):
+                self.corners = corners
+            self.M.when("global", "corners", receiveCorners)
+            if self.corners:
+                logging.info("got corners %s" % len(self.corners))
 
             def receiveProjectorCalibration(cal):
                 self.projector_calibration = cal

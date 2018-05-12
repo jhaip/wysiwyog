@@ -26,11 +26,13 @@ type Dot struct {
 }
 
 type Corner struct {
-	corner Dot
-	lines  [][]int
-	sides  [][]int
-	PaperId     int
-  CornerId     int
+	Corner Dot         `json:"corner"`
+  lines  [][]int     `json:"-"`
+	sides  [][]int     `json:"-"`
+	PaperId     int    `json:"paperId"`
+  CornerId     int   `json:"cornerId"`
+  ColorString string `json:"colorString"`
+  RawColorsList [][3]int `json:"rawColorsList"`
 }
 
 type PaperCorner struct {
@@ -58,11 +60,15 @@ func main() {
   	// printDots(points)
   	step1 := doStep1(points)
   	// printDots(step1)
+
   	step2 := doStep2(step1)
   	// printCorners(step2[:5])
+    // printJsonDots(step1)
+    // claimCorners(step2)
   	step3 := doStep3(step1, step2)
   	// printCorners(step3)
   	step4 := doStep4CornersWithIds(step1, step3)
+    claimCorners(step4)
   	// printCorners(step4)
     papers := getPapersFromCorners(step4)
     fmt.Println(papers)
@@ -84,7 +90,7 @@ func getPapersFromCorners(corners []Corner) []Paper {
   for _, corner := range corners {
     cornerIdStr := strconv.Itoa(corner.PaperId)
     _, idInMap := papersMap[cornerIdStr]
-    cornerDotVec := PaperCorner{corner.corner.X, corner.corner.Y, corner.CornerId}
+    cornerDotVec := PaperCorner{corner.Corner.X, corner.Corner.Y, corner.CornerId}
     if idInMap {
       papersMap[cornerIdStr] = append(papersMap[cornerIdStr], cornerDotVec)
     } else {
@@ -94,9 +100,10 @@ func getPapersFromCorners(corners []Corner) []Paper {
   // fmt.Println(papersMap)
   papers := make([]Paper, 0)
   for id := range papersMap {
-    if id != "-1" {
-      papers = append(papers, Paper{id, papersMap[id]})
-    }
+    papers = append(papers, Paper{id, papersMap[id]})
+    // if id != "-1" {
+    //   papers = append(papers, Paper{id, papersMap[id]})
+    // }
   }
   return papers
 }
@@ -112,9 +119,15 @@ func printDots(data []Dot) {
 func printCorners(data []Corner) {
 	s := make([]string, len(data))
 	for i, d := range data {
-		s[i] = fmt.Sprintf("%v \t %v \t %v \t %v \t %v", d.corner, d.lines, d.sides, d.PaperId, d.CornerId)
+		s[i] = fmt.Sprintf("%v \t %v \t %v \t %v \t %v", d.Corner, d.lines, d.sides, d.PaperId, d.CornerId)
 	}
 	fmt.Println(strings.Join(s, "\n"))
+
+  cornersAlmostStr, err := json.Marshal(data)
+  fmt.Println("Err?")
+  fmt.Println(err)
+  cornersStr := string(cornersAlmostStr)
+  fmt.Println(cornersStr)
 }
 
 func distanceSquared(p1 Dot, p2 Dot) float64 {
@@ -194,7 +207,7 @@ func search(nodes []Dot, start Dot, depth int) [][]int {
 func doStep2(points []Dot) []Corner {
 	step2 := make([]Corner, len(points))
 	for i, point := range points {
-		step2[i] = Corner{corner: point, lines: search(points, point, 3)}
+		step2[i] = Corner{Corner: point, lines: search(points, point, 3)}
 	}
 	return step2
 }
@@ -237,14 +250,14 @@ func indexOf(word string, data []string) int {
 	return -1
 }
 
-func getGetPaperIdFromColors(colors [][3]int) (int, int) {
+func getGetPaperIdFromColors(colors [][3]int) (int, int, string) {
 	var colorString string
 
   calibrationColors := make([][3]int, 4)
-  calibrationColors[0] = [3]int{123, 59, 56}  // red
-  calibrationColors[1] = [3]int{120, 118, 95}  // green
-  calibrationColors[2] = [3]int{103, 107, 128}  // blue
-  calibrationColors[3] = [3]int{56, 42, 47}  // dark
+  calibrationColors[0] = [3]int{170, 48, 31}  // red
+  calibrationColors[1] = [3]int{138, 131, 94}  // green
+  calibrationColors[2] = [3]int{112, 118, 150}  // blue
+  calibrationColors[3] = [3]int{52, 23, 21}  // dark
 
   // calibrationColors[0] = [3]int{202, 61, 79}  // red
   // calibrationColors[1] = [3]int{162, 156, 118}  // green
@@ -285,9 +298,9 @@ func getGetPaperIdFromColors(colors [][3]int) (int, int) {
   if colors8400Index > 0 {
     paperId := colors8400Index % (8400 / 4)
     cornerId := colors8400Index / (8400 / 4)
-    return paperId, cornerId
+    return paperId, cornerId, colorString
   }
-	return -1, -1
+	return -1, -1, colorString
 }
 
 func lineToColors(nodes []Dot, line []int, shouldReverse bool) [][3]int {
@@ -306,9 +319,12 @@ func doStep4CornersWithIds(nodes []Dot, corners []Corner) []Corner {
 	results := make([]Corner, 0)
 	for _, corner := range corners {
 		newCorner := corner
-    paperId, cornerId := getGetPaperIdFromColors(append(append(lineToColors(nodes, corner.sides[0], true), corner.corner.Color), lineToColors(nodes, corner.sides[1], false)...))
+    rawColorsList := append(append(lineToColors(nodes, corner.sides[0], true), corner.Corner.Color), lineToColors(nodes, corner.sides[1], false)...)
+    paperId, cornerId, colorString := getGetPaperIdFromColors(rawColorsList)
 		newCorner.PaperId = paperId
     newCorner.CornerId = cornerId
+    newCorner.ColorString = colorString
+    newCorner.RawColorsList = rawColorsList
 		results = append(results, newCorner)
 	}
 	return results
@@ -346,6 +362,39 @@ func claimPapers(papers []Paper) {
   msg := fmt.Sprintf(
     "{\"event\": \"claim\", \"options\": {\"source\": \"global\", \"key\": \"papers\", \"value\": %s}}",
     papersStr,
+  )
+  fmt.Println("Sending ", msg)
+  requester.Send(msg, 0)
+
+  // Wait for reply:
+	reply, _ := requester.Recv(0)
+	fmt.Println("Received ", reply)
+}
+
+func printJsonDots(dots []Dot) {
+  cornersAlmostStr, err := json.Marshal(dots)
+  fmt.Println("Err?")
+  fmt.Println(err)
+  cornersStr := string(cornersAlmostStr)
+  fmt.Println(cornersStr)
+  fmt.Println("---")
+}
+
+func claimCorners(corners []Corner) {
+  fmt.Println("Connecting to hello world server...")
+	requester, _ := zmq.NewSocket(zmq.REQ)
+	defer requester.Close()
+	requester.Connect("tcp://localhost:5555")
+
+  // send hello
+  cornersAlmostStr, err := json.Marshal(corners)
+  fmt.Println("Err?")
+  fmt.Println(err)
+  cornersStr := string(cornersAlmostStr)
+  fmt.Println(cornersStr)
+  msg := fmt.Sprintf(
+    "{\"event\": \"claim\", \"options\": {\"source\": \"global\", \"key\": \"corners\", \"value\": %s}}",
+    cornersStr,
   )
   fmt.Println("Sending ", msg)
   requester.Send(msg, 0)
