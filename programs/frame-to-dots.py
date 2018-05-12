@@ -10,7 +10,7 @@ CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
 
 class ShowCapture(wx.Panel):
-    def __init__(self, parent, capture, fps=10):
+    def __init__(self, parent, capture, fps=4):
         wx.Panel.__init__(self, parent)
 
         self.capture = capture
@@ -89,8 +89,8 @@ class ShowCapture(wx.Panel):
     def NextFrame(self, event):
         ret, frame = self.capture.read()
         if ret:
-
             start = time.time()
+
             params = cv2.SimpleBlobDetector_Params()
             params.minThreshold = 10
             params.maxThreshold = 240
@@ -109,18 +109,22 @@ class ShowCapture(wx.Panel):
 
             # print(self.keypoints)
             def keypointMapFunc(keypoint):
-                color = frame[int(keypoint.pt[1]), int(keypoint.pt[0])]
+                # color = frame[int(keypoint.pt[1]), int(keypoint.pt[0])]
+                colorSum = [0, 0, 0]
+                for i in range(-1, 2):
+                    for j in range(-1, 2):
+                        color = frame[int(keypoint.pt[1])+i, int(keypoint.pt[0])+j]
+                        colorSum[0] += int(color[0])
+                        colorSum[1] += int(color[1])
+                        colorSum[2] += int(color[2])
                 return {
                     "x": int(keypoint.pt[0]),
                     "y": int(keypoint.pt[1]),
-                    "color": [int(color[2]), int(color[1]), int(color[0])]
+                    "color": [int(colorSum[2]/9), int(colorSum[1]/9), int(colorSum[0]/9)]
                 }
             self.dots = list(map(keypointMapFunc, keypoints))
             # print(self.dots)
             self.M.claim("global", "dots", self.dots)
-
-            end = time.time()
-            print(end - start)
 
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             self.bmp.CopyFromBuffer(frame)
@@ -128,6 +132,9 @@ class ShowCapture(wx.Panel):
             img = wx.Bitmap.ConvertToImage( self.bmp )
             img_str = img.GetData()
             self.M.set_image(img_str)
+
+            end = time.time()
+            print(end - start)
 
             self.Refresh()
 
