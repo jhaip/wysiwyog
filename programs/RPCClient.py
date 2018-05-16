@@ -56,3 +56,9 @@ class RPCClient:
         self.socket.send_string(data)
         message = self.socket.recv()
         return message
+
+    def create_program(self, name):
+        return self._rpc("create_program", {"name": name})
+
+    def update_program(self, program_id, new_code):
+        return self._rpc("update_program", {"program_id": program_id, "new_code": new_code})

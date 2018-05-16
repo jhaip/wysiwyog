@@ -4,6 +4,9 @@ import logging
 import json
 import psutil
 import uuid
+import sqlite3
+import random
+from pathlib import Path
 
 logging.basicConfig(level=logging.ERROR)
 
@@ -13,6 +16,12 @@ string_socket.bind("tcp://*:5555")
 
 image_socket = context.socket(zmq.REP)
 image_socket.bind("tcp://*:5566")
+
+conn = sqlite3.connect('code.db')
+# >>> import sqlite3
+# >>> conn = sqlite3.connect('code.db')
+# >>> c = conn.cursor()
+# >>> c.execute("CREATE TABLE programs (id text, name text, filename text)")
 
 
 class Master:
@@ -61,9 +70,67 @@ class Master:
         logging.info("CLEAR CLAIMS")
         logging.info(self.state)
 
+    def _generate_program_id(self):
+        max_number = 8400 // 4
+        existing_ids = []
+        potential_ids = []
+        c = conn.cursor()
+        for row in c.execute("SELECT id FROM programs"):
+            logging.error(row)
+            existing_ids.append(row[0])
+        for i in range(max_number):
+            if i not in existing_ids:
+                potential_ids.append(i)
+        if len(potential_ids) is 0:
+            raise Exception("No more program IDs available. Max number of programs reaached")
+        return random.choice(potential_ids)
+
+    def create_program(self, name):
+        logging.error("CREATE NEW PROGRAM")
+        logging.error(name)
+        # Create a program with the given name, empty code, and a chosen ID
+        new_id = self._generate_program_id()
+        filename = "programs/" + name + ".py"
+        with open(filename, 'w') as f:
+            f.write("")
+        new_program = (new_id, name, filename)
+        c = conn.cursor()
+        c.execute("INSERT INTO programs VALUES (?,?,?)", new_program)
+        conn.commit()
+        return new_id
+
+    def update_program(self, program_id, new_code):
+        logging.error("UPDATE PROGRAM")
+        logging.error(program_id)
+        logging.error(new_code)
+        c = conn.cursor()
+        path = None
+        for row in c.execute("SELECT filename FROM programs WHERE id = '%s'" % program_id):
+            logging.error(row)
+            path = row[0]
+        if path is None:
+            return None
+        with open(path, 'w') as f:
+            f.write(new_code)
+        # TODO: stop program
+        return True
+
+    def _get_source_code(self, program_id):
+        c = conn.cursor()
+        path = None
+        for row in c.execute("SELECT path FROM programs WHERE id = '%s'" % program_id):
+            logging.error(row)
+            path = row[0]
+        if path is None:
+            return None
+        p = Path(path)
+        return p.read_text()
+
     def when(self, source, key):
         source = str(source)
         key = str(key)
+        if source == "code":
+            return _get_source_code(key)
         return self.state.get(source, {}).get(key)
 
     def stop_program(self, id):
@@ -168,6 +235,13 @@ def process_string_socket():
             string_socket.send_string(noop)
         elif event == "get_image":
             string_socket.send(master.get_image())
+        elif event == "create_program":
+            new_id = master.create_program(options["name"])
+            data = json.dumps({"id": new_id})
+            string_socket.send_string(data)
+        elif event == "update_program":
+            master.update_program(options["program_id"], options["new_code"])
+            string_socket.send_string(noop)
 
 
 def process_image_socket():
