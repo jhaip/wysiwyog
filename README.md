@@ -34,3 +34,19 @@ Projection Transform: https://docs.opencv.org/3.4.0/da/d6e/tutorial_py_geometric
 Reducing lag on video:
 * https://www.pyimagesearch.com/2015/12/21/increasing-webcam-fps-with-python-and-opencv/
 * https://github.com/npinto/opencv/blob/master/samples/python2/video_threaded.py
+
+**5/15/18**
+
+https://github.com/tutorcruncher/pydf
+
+```
+docker run -rm -p 8000:80 -d samuelcolvin/pydf
+curl -d '<h1>this is html</h1>' -H "pdf-orientation: landscape" http://localhost:8000/generate.pdf > created.pdf
+open "created.pdf"
+```
+
+```
+services:
+  pdf:
+    image: samuelcolvin/pydf
+```
