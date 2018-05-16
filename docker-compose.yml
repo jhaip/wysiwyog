@@ -10,3 +10,7 @@ services:
       - "5555:5555"
       - "5566:5566"
     command: ["python", "app.py"]
+  pdf:
+    image: samuelcolvin/pydf
+    ports:
+      - "8011:80"
