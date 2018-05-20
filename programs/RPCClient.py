@@ -43,9 +43,6 @@ class RPCClient:
     def run_program(self, id, restart=False):
         return self._rpc("run_program", {"id": id, "restart": restart})
 
-    def add_program(self, id, path, restart=False):
-        return self._rpc("add_program", {"id": id, "path": path, "restart": restart})
-
     def set_image(self, image_string):
         self.image_socket.send(image_string)
         message = self.image_socket.recv_string()

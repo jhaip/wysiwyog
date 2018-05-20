@@ -18,10 +18,6 @@ image_socket = context.socket(zmq.REP)
 image_socket.bind("tcp://*:5566")
 
 conn = sqlite3.connect('code.db')
-# >>> import sqlite3
-# >>> conn = sqlite3.connect('code.db')
-# >>> c = conn.cursor()
-# >>> c.execute("CREATE TABLE programs (id text, name text, filename text)")
 
 
 class Master:
@@ -31,6 +27,30 @@ class Master:
         self.state = {}
         self.programs = {}
         self.image = None
+        self.init_db()
+        self.init_program_state()
+
+    def _init_db(self):
+        c = conn.cursor()
+        c.execute("CREATE TABLE IF NOT EXISTS programs (id TEXT PRIMARY KEY, name TEXT, filename TEXT)")
+        conn.commit()
+
+        n_programs = c.execute("SELECT COUNT(*) FROM programs")[0]
+        if n_programs == 0:
+            self.create_program("boot", "programs/boot.py", 0)
+            self.create_program("one_tick", "programs/one_tick.py", 1)
+            self.create_program("clock", "programs/clock.py", 2)
+            self.create_program("drawer1", "programs/drawer1.py", 1072)
+            self.create_program("fox_claimer", "programs/fox_claimer.py", 1054)
+            self.create_program("fox_conditional", "programs/fox_conditional.py", 1688)
+            self.create_program("projector", "programs/projector.py", 6)
+            self.create_program("run_papers", "programs/run_papers.py", 7)
+            self.create_program("code_mgmt_test", "programs/code_mgmt_test.py", 99)
+
+    def _init_program_state(self):
+        c = conn.cursor()
+        for row in c.execute("SELECT id, filename FROM programs"):
+            self.programs[row[0]] = {"path": row[1]}
 
     def clear_wishes(self, opts):
         def keep(w):
@@ -70,6 +90,13 @@ class Master:
         logging.info("CLEAR CLAIMS")
         logging.info(self.state)
 
+    def when(self, source, key):
+        source = str(source)
+        key = str(key)
+        if source == "code":
+            return _get_source_code(key)
+        return self.state.get(source, {}).get(key)
+
     def _generate_program_id(self):
         max_number = 8400 // 4
         existing_ids = []
@@ -85,18 +112,24 @@ class Master:
             raise Exception("No more program IDs available. Max number of programs reaached")
         return random.choice(potential_ids)
 
-    def create_program(self, name):
+    def create_program(self, name, existing_filename=None, force_id=None):
         logging.error("CREATE NEW PROGRAM")
         logging.error(name)
+        logging.error(existing_filename)
         # Create a program with the given name, empty code, and a chosen ID
-        new_id = self._generate_program_id()
-        filename = "programs/" + name + ".py"
-        with open(filename, 'w') as f:
-            f.write("")
+        new_id = force_id
+        if force_id is None:
+            new_id = self._generate_program_id()
+        filename = existing_filename
+        if existing_filename is None:
+            filename = "programs/" + name + ".py"
+            with open(filename, 'w') as f:
+                f.write("")
         new_program = (new_id, name, filename)
         c = conn.cursor()
         c.execute("INSERT INTO programs VALUES (?,?,?)", new_program)
         conn.commit()
+        self.programs[new_id] = {"path": filename}
         return new_id
 
     def update_program(self, program_id, new_code):
@@ -112,7 +145,7 @@ class Master:
             return None
         with open(path, 'w') as f:
             f.write(new_code)
-        # TODO: stop program
+        self.stop_program(program_id)
         return True
 
     def _get_source_code(self, program_id):
@@ -126,29 +159,15 @@ class Master:
         p = Path(path)
         return p.read_text()
 
-    def when(self, source, key):
-        source = str(source)
-        key = str(key)
-        if source == "code":
-            return _get_source_code(key)
-        return self.state.get(source, {}).get(key)
-
     def stop_program(self, id):
         id = str(id)
         if id in self.programs:
-            # logging.error("STOP PROGRAM - %s" % id)
-            # logging.error(self.programs)
             pid = self.programs[id].get("pid")
-            # logging.error("PID %s" % pid)
             if pid is not None and psutil.pid_exists(pid):
-                # logging.error("ABOUT TO STOP PROGRAM %s" % pid)
                 p = psutil.Process(pid)
                 p.terminate()
                 p.wait(timeout=1)  # This might be blocking?
                 self.programs[id]["pid"] = None
-                # logging.error("PROGRAM STOPPED")
-                # logging.error(self.programs)
-                # logging.error("DONE WITH STOP PROGRAM - %s" % id)
             self.clear_wishes({"source": str(id)})
             self.clear_claims(str(id))
         else:
@@ -175,15 +194,6 @@ class Master:
         else:
             logging.error("Program with id %s does not exist" % id)
 
-    def add_program(self, id, path_to_code, restart=False):
-        id = str(id)
-        path_to_code = str(path_to_code)
-        self.programs[id] = {"path": path_to_code}
-        logging.info("PROGRAM ADDED")
-        logging.info(self.programs)
-        if restart:
-            self.run_program(id, True)
-
     def set_image(self, image_string):
         self.image = image_string
         logging.info("IMAGE SET")
@@ -193,7 +203,7 @@ class Master:
 
 
 master = Master()
-master.add_program(0, "/app/programs/boot.py", True)
+master.run_program(0)
 
 def process_string_socket():
     while True:
@@ -229,9 +239,6 @@ def process_string_socket():
             string_socket.send_string(noop)
         elif event == "run_program":
             master.run_program(options["id"], options.get("restart", False))
-            string_socket.send_string(noop)
-        elif event == "add_program":
-            master.add_program(options["id"], options["path"], options.get("restart", False))
             string_socket.send_string(noop)
         elif event == "get_image":
             string_socket.send(master.get_image())
