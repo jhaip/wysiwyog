@@ -11,3 +11,4 @@ id = sys.argv[1]
 time.sleep(1)  # HACK: wait a sec for master to initialize
 
 M.run_program(7)
+M.run_program(99)  # Code mgmt test
