@@ -27,15 +27,15 @@ class Master:
         self.state = {}
         self.programs = {}
         self.image = None
-        self.init_db()
-        self.init_program_state()
+        self._init_db()
+        self._init_program_state()
 
     def _init_db(self):
         c = conn.cursor()
         c.execute("CREATE TABLE IF NOT EXISTS programs (id TEXT PRIMARY KEY, name TEXT, filename TEXT)")
         conn.commit()
 
-        n_programs = c.execute("SELECT COUNT(*) FROM programs")[0]
+        n_programs = c.execute("SELECT COUNT(*) FROM programs").fetchone()[0]
         if n_programs == 0:
             self.create_program("boot", "programs/boot.py", 0)
             self.create_program("one_tick", "programs/one_tick.py", 1)
@@ -94,7 +94,7 @@ class Master:
         source = str(source)
         key = str(key)
         if source == "code":
-            return _get_source_code(key)
+            return self._get_source_code(key)
         return self.state.get(source, {}).get(key)
 
     def _generate_program_id(self):
@@ -120,6 +120,7 @@ class Master:
         new_id = force_id
         if force_id is None:
             new_id = self._generate_program_id()
+        new_id = str(new_id)
         filename = existing_filename
         if existing_filename is None:
             filename = "programs/" + name + ".py"
@@ -130,6 +131,8 @@ class Master:
         c.execute("INSERT INTO programs VALUES (?,?,?)", new_program)
         conn.commit()
         self.programs[new_id] = {"path": filename}
+        logging.error(type(new_id))
+        logging.error(self.programs)
         return new_id
 
     def update_program(self, program_id, new_code):
@@ -138,7 +141,7 @@ class Master:
         logging.error(new_code)
         c = conn.cursor()
         path = None
-        for row in c.execute("SELECT filename FROM programs WHERE id = '%s'" % program_id):
+        for row in c.execute("SELECT filename FROM programs WHERE id = ?", (str(program_id),)):
             logging.error(row)
             path = row[0]
         if path is None:
@@ -151,13 +154,16 @@ class Master:
     def _get_source_code(self, program_id):
         c = conn.cursor()
         path = None
-        for row in c.execute("SELECT path FROM programs WHERE id = '%s'" % program_id):
+        for row in c.execute("SELECT filename FROM programs WHERE id = ?", (str(program_id),)):
             logging.error(row)
             path = row[0]
         if path is None:
             return None
         p = Path(path)
-        return p.read_text()
+        text = p.read_text()
+        logging.error("_GET SOURCE CODE:")
+        logging.error(text)
+        return text
 
     def stop_program(self, id):
         id = str(id)
@@ -203,7 +209,7 @@ class Master:
 
 
 master = Master()
-master.run_program(0)
+master.run_program(99)
 
 def process_string_socket():
     while True:
@@ -243,8 +249,12 @@ def process_string_socket():
         elif event == "get_image":
             string_socket.send(master.get_image())
         elif event == "create_program":
+            logging.error("************")
             new_id = master.create_program(options["name"])
             data = json.dumps({"id": new_id})
+            logging.error("returning data")
+            logging.error(new_id)
+            logging.error(data)
             string_socket.send_string(data)
         elif event == "update_program":
             master.update_program(options["program_id"], options["new_code"])
