@@ -1,6 +1,8 @@
 import requests
 from string import Template
 
+# print PDF on MacOS: lpr 1.pdf
+
 program_name = "123 - Fox catcher"
 source_code = """
 import time
