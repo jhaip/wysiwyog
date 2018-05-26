@@ -94,7 +94,7 @@ class Master:
         source = str(source)
         key = str(key)
         if source == "code":
-            return self._get_source_code(key)
+            return self.__get_program_description(key)
         return self.state.get(source, {}).get(key)
 
     def _generate_program_id(self):
@@ -151,19 +151,21 @@ class Master:
         self.stop_program(program_id)
         return True
 
-    def _get_source_code(self, program_id):
+    def _get_program_description(self, program_id):
         c = conn.cursor()
         path = None
-        for row in c.execute("SELECT filename FROM programs WHERE id = ?", (str(program_id),)):
+        name = None
+        for row in c.execute("SELECT filename, name FROM programs WHERE id = ?", (str(program_id),)):
             logging.error(row)
             path = row[0]
+            name = row[1]
         if path is None:
             return None
         p = Path(path)
         text = p.read_text()
         logging.error("_GET SOURCE CODE:")
         logging.error(text)
-        return text
+        return {"code": text, "name": name}
 
     def stop_program(self, id):
         id = str(id)
