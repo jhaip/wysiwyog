@@ -26,6 +26,7 @@ class Master:
         self.wishes = []
         self.state = {}
         self.programs = {}
+        self.boot_programs = ['0', '7', '99']
         self.image = None
         self._init_db()
         self._init_program_state()
@@ -90,11 +91,17 @@ class Master:
         logging.info("CLEAR CLAIMS")
         logging.info(self.state)
 
+    def _list_non_boot_papers(self):
+        papers = list(self.programs.keys())
+        return list(filter(lambda x: x not in self.boot_programs, papers))
+
     def when(self, source, key):
         source = str(source)
         key = str(key)
         if source == "code":
             return self._get_program_description(key)
+        if source == "list_papers":
+            return self._list_non_boot_papers()
         return self.state.get(source, {}).get(key)
 
     def _generate_program_id(self):
