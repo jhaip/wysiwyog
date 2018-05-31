@@ -195,10 +195,12 @@ class Master:
                         self.clear_claims(str(id))
                 else:
                     return  # let it keep running
-            p = psutil.Popen(["python", self.programs[id]["path"], str(id)])
-            self.programs[id]["pid"] = p.pid
-            logging.info("PROGRAM STARTED")
-            logging.info(self.programs)
+            try:
+                p = psutil.Popen(["python", self.programs[id]["path"], str(id)])
+                self.programs[id]["pid"] = p.pid
+            except:
+                logging.error("Error starting program", str(id))
+                logging.error("Unexpected error:", sys.exc_info()[0])
         else:
             logging.error("Program with id %s does not exist" % id)
 
