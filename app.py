@@ -94,7 +94,7 @@ class Master:
         source = str(source)
         key = str(key)
         if source == "code":
-            return self.__get_program_description(key)
+            return self._get_program_description(key)
         return self.state.get(source, {}).get(key)
 
     def _generate_program_id(self):
