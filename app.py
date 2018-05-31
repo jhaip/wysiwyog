@@ -123,7 +123,7 @@ class Master:
         new_id = str(new_id)
         filename = existing_filename
         if existing_filename is None:
-            filename = "programs/" + name + ".py"
+            filename = "programs/" + name + "--" + str(new_id) + ".py"
             with open(filename, 'w') as f:
                 f.write("")
         new_program = (new_id, name, filename)
