@@ -211,7 +211,7 @@ class Master:
 
 
 master = Master()
-master.run_program(99)
+master.run_program(0)
 
 def process_string_socket():
     while True:
