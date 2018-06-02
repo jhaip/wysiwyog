@@ -37,6 +37,9 @@ class RPCClient:
         val = self._rpc("when", {"source": source, "key": key})
         callback(val)
 
+    def when_no_callback(self, source, key):
+        return self._rpc("when", {"source": source, "key": key})
+
     def stop_program(self, id):
         return self._rpc("stop_program", {"id": id})
 
