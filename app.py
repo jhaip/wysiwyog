@@ -26,7 +26,7 @@ class Master:
         self.wishes = []
         self.state = {}
         self.programs = {}
-        self.boot_programs = ['0', '7', '99']
+        self.boot_programs = ['0', '7', '8', '99']
         self.image = None
         self._init_db()
         self._init_program_state()
@@ -46,6 +46,7 @@ class Master:
             self.create_program("fox_conditional", "programs/fox_conditional.py", 1688)
             self.create_program("projector", "programs/projector.py", 6)
             self.create_program("run_papers", "programs/run_papers.py", 7)
+            self.create_program("http_rpc", "programs/http_rpc.py", 8)
             self.create_program("code_mgmt_test", "programs/code_mgmt_test.py", 99)
 
     def _init_program_state(self):
