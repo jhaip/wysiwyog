@@ -1,5 +1,8 @@
+import sys
 import RPCClient
-from flask import Flask, jsonify, abort
+import logging
+import json
+from flask import Flask, jsonify, abort, request
 
 app = Flask(__name__)
 
@@ -10,10 +13,13 @@ id = sys.argv[1]
 
 @app.route('/', methods=['GET', 'POST'])
 def hello():
+    logging.info("request!")
     if request.method == 'POST':
         params = request.get_json()
         event = params.get("event")
         options = params.get("options")
+        logging.info("RECEIVED POST REQUEST")
+        logging.info(params)
         if event == "clear_wishes":
             d = M.clear_wishes(options.get("opts"))
             return jsonify(d)
@@ -37,14 +43,26 @@ def hello():
             return jsonify(d)
         abort(404)
     else:
+        logging.info("RECEIVED GET REQUEST")
+        logging.info(request.args)
+        is_test = request.args.get("test")
+        if is_test:
+            return jsonify({"hello": "world"})
         event = request.args.get("event")
         options = request.args.get("options")
+        if options:
+            options = json.loads(options)
+
         if event == "get_wishes_by_type":
             d = M.get_wishes_by_type(options.get("type"))
             return jsonify(d)
         elif event == "when":
-            d = M.stop_program(options.get("source"), options.get("key"))
+            d = M.when_no_callback(options.get("source"), options.get("key"))
             return jsonify(d)
         elif event == "get_image":
             abort(400)
         abort(404)
+
+
+if __name__ == '__main__':
+    app.run(debug=True,host='0.0.0.0')

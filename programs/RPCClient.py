@@ -1,6 +1,7 @@
 import zmq
 import logging
 import json
+import requests
 
 logging.basicConfig(level=logging.INFO)
 
@@ -8,7 +9,8 @@ logging.basicConfig(level=logging.INFO)
 class RPCClient:
 
     def __init__(self, use_http=False, rpc_url=None):
-        if use_http:
+        self.use_http = use_http
+        if self.use_http:
             logging.info("Using HTTP RPC connection to server")
             self.RPC_URL = rpc_url
         else:
@@ -20,11 +22,13 @@ class RPCClient:
             self.image_socket.connect("tcp://localhost:5566")
 
     def _rpc(self, eventName, options):
-        if use_http:
+        if self.use_http:
             r = None
             if eventName in ["get_wishes_by_type", "when", "get_image"]:
-                r = requests.get(self.RPC_URL, params={"event": eventName, "options": options})
+                logging.info("Making a GET Request")
+                r = requests.get(self.RPC_URL, params={"event": eventName, "options": json.dumps(options)})
             else:
+                logging.info("Making a POST Request")
                 r = requests.post(self.RPC_URL, json={"event": eventName, "options": options})
             r.raise_for_status()
             return r.json()
