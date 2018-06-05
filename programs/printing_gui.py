@@ -39,7 +39,7 @@ class Example(wx.Frame):
 
         self.Show()
 
-        self.M = RPCClient.RPCClient()
+        self.M = RPCClient.RPCClient(use_http=False, rpc_url=None)
 
         self.newPaperButton.Bind(wx.EVT_BUTTON, self.OnNewPaperButtonClicked)
         self.loadPaperButton.Bind(wx.EVT_BUTTON, self.OnLoadPaperButtonClicked)
