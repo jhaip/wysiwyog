@@ -9,6 +9,9 @@ from wx.html import HtmlEasyPrinting
 
 logging.basicConfig(level=logging.INFO)
 
+RPC_URL = "http://localhost:5000/"
+PDF_GEN_URL = "http://localhost:8011/generate.pdf"
+
 class Example(wx.Frame):
     def __init__(self, parent, title):
         super(Example, self).__init__(parent, title=title,
@@ -39,7 +42,7 @@ class Example(wx.Frame):
 
         self.Show()
 
-        self.M = RPCClient.RPCClient(use_http=True, rpc_url="http://localhost:5000/")
+        self.M = RPCClient.RPCClient(use_http=True, rpc_url=RPC_URL)
 
         self.newPaperButton.Bind(wx.EVT_BUTTON, self.OnNewPaperButtonClicked)
         self.loadPaperButton.Bind(wx.EVT_BUTTON, self.OnLoadPaperButtonClicked)
@@ -122,7 +125,6 @@ class Example(wx.Frame):
 
         html = template.substitute(template_data)
         logging.error("requesting")
-        url = "http://localhost:8011/generate.pdf"
         headers = {
             "Pdf-orientation": "portrait",
             # "Pdf-margin_bottom": "10mm",
@@ -131,7 +133,7 @@ class Example(wx.Frame):
             # "Pdf-margin_top": "10mm",
             "Pdf-page_size": "Letter"
         }
-        r = requests.post(url, data=html, headers=headers)
+        r = requests.post(PDF_GEN_URL, data=html, headers=headers)
         logging.error(r)
         filename = "program_print_cache.pdf"
         with open(filename, 'wb') as f:
@@ -243,8 +245,8 @@ def get_template():
     <html>
     <head><style>
     #target{
-        width: 50px;
-        height: 50px;
+        width: 70px;
+        height: 70px;
         background-color: #000;
         border-radius: 50%;
         margin: 12px;
@@ -299,10 +301,10 @@ def get_template():
     <body>
     <div class="corner top left">
       <div>
-        <div id="target" style="background-color: $corner0_6"></div>
-        <div id="target" style="background-color: $corner0_5"></div>
-        <div id="target" style="background-color: $corner0_4"></div>
         <div id="target" style="background-color: $corner0_3"></div>
+        <div id="target" style="background-color: $corner0_4"></div>
+        <div id="target" style="background-color: $corner0_5"></div>
+        <div id="target" style="background-color: $corner0_6"></div>
       </div>
       <div class="clear"></div>
       <div id="target" style="background-color: $corner0_2"></div>
@@ -314,10 +316,10 @@ def get_template():
     </div>
     <div class="corner top right">
       <div>
-        <div id="target" style="background-color: $corner1_0"></div>
-        <div id="target" style="background-color: $corner1_1"></div>
-        <div id="target" style="background-color: $corner1_2"></div>
         <div id="target" style="background-color: $corner1_3"></div>
+        <div id="target" style="background-color: $corner1_2"></div>
+        <div id="target" style="background-color: $corner1_1"></div>
+        <div id="target" style="background-color: $corner1_0"></div>
       </div>
       <div class="clear"></div>
       <div id="target" style="background-color: $corner1_4"></div>
@@ -328,32 +330,32 @@ def get_template():
       <div class="clear"></div>
     </div>
     <div class="corner bottom right">
-      <div id="target" style="background-color: $corner2_6"></div>
+      <div id="target" style="background-color: $corner2_0"></div>
       <div class="clear"></div>
-      <div id="target" style="background-color: $corner2_5"></div>
+      <div id="target" style="background-color: $corner2_1"></div>
       <div class="clear"></div>
-      <div id="target" style="background-color: $corner2_4"></div>
+      <div id="target" style="background-color: $corner2_2"></div>
       <div class="clear"></div>
       <div>
         <div id="target" style="background-color: $corner2_3"></div>
-        <div id="target" style="background-color: $corner2_2"></div>
-        <div id="target" style="background-color: $corner2_1"></div>
-        <div id="target" style="background-color: $corner2_0"></div>
+        <div id="target" style="background-color: $corner2_4"></div>
+        <div id="target" style="background-color: $corner2_5"></div>
+        <div id="target" style="background-color: $corner2_6"></div>
       </div>
       <div class="clear"></div>
     </div>
     <div class="corner bottom left">
-      <div id="target" style="background-color: $corner2_6"></div>
+      <div id="target" style="background-color: $corner3_0"></div>
       <div class="clear"></div>
-      <div id="target" style="background-color: $corner2_5"></div>
+      <div id="target" style="background-color: $corner3_1"></div>
       <div class="clear"></div>
-      <div id="target" style="background-color: $corner2_4"></div>
+      <div id="target" style="background-color: $corner3_2"></div>
       <div class="clear"></div>
       <div>
-        <div id="target" style="background-color: $corner2_3"></div>
-        <div id="target" style="background-color: $corner2_2"></div>
-        <div id="target" style="background-color: $corner2_1"></div>
-        <div id="target" style="background-color: $corner2_0"></div>
+        <div id="target" style="background-color: $corner3_3"></div>
+        <div id="target" style="background-color: $corner3_4"></div>
+        <div id="target" style="background-color: $corner3_5"></div>
+        <div id="target" style="background-color: $corner3_6"></div>
       </div>
       <div class="clear"></div>
     </div>
