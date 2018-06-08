@@ -96,8 +96,52 @@ class Example(wx.Frame):
                 logging.error("Error getting program details!", program_id)
         self.M.when("code", program_id, receive_code)
 
+    def print_via_lpr(self, program_id, code, name):
+        logging.error("print via lpr")
+        template = get_template()
+        title = "{0} ({1})".format(name, program_id)
+        template_data = {'code': code, 'title': title}
+
+        bleed_margin = 36
+        paper_width = 612 - bleed_margin
+        paper_height = 792 - bleed_margin
+        s = 42
+        sp = s + 16
+        m = s/2
+
+        corner_colors = calc_corner_colors(program_id)
+        r = self.get_corner(m, m, 0, corner_colors[0], s, sp)
+        template_data.update(r)
+        r = self.get_corner(paper_width - m, m, 1, corner_colors[1], s, sp)
+        template_data.update(r)
+        r = self.get_corner(paper_width - m, paper_height - m, 2, corner_colors[2], s, sp)
+        template_data.update(r)
+        r = self.get_corner(m, paper_height - m, 3, corner_colors[3], s, sp)
+        template_data.update(r)
+
+
+        html = template.substitute(template_data)
+        logging.error("requesting")
+        url = "http://localhost:8011/generate.pdf"
+        headers = {
+            "Pdf-orientation": "portrait",
+            # "Pdf-margin_bottom": "10mm",
+            # "Pdf-margin_left": "10mm",
+            # "Pdf-margin_right": "10mm",
+            # "Pdf-margin_top": "10mm",
+            "Pdf-page_size": "Letter"
+        }
+        r = requests.post(url, data=html, headers=headers)
+        logging.error(r)
+        filename = "program_print_cache.pdf"
+        with open(filename, 'wb') as f:
+            f.write(r.content)
+
+        subprocess.run(["/usr/bin/lpr", "program_print_cache.pdf"])
+
     def OnPrintDialog(self, program_id, code, name):
         program_id = int(program_id)
+        return self.print_via_lpr(program_id, code, name)
         pd = wx.PrintData()
         pd.SetPrinterName("")
         pd.SetOrientation(wx.PORTRAIT)
@@ -175,6 +219,152 @@ class Example(wx.Frame):
             dc.SetBrush(wx.Brush(dot_color_map[int(corner_colors[i])]))
             # dc.DrawText(str(i), x + z[0] - s/2, y + z[1] - s/2)
             dc.DrawEllipse(x + z[0] - s/2, y + z[1] - s/2, s, s)
+
+    def get_corner(self, x, y, n_rotations, corner_colors, s, sp):
+        pts = []
+        for yi in reversed(range(4)):
+            pts.append((0, sp * yi))
+        for xi in range(1, 4):
+            pts.append((sp * xi, 0))
+        for i in range(n_rotations):
+            pts = map(lambda k: (-k[1], k[0]), pts)
+
+        dot_color_map = ["#F00", "#0F0", "#00F", "#000"]
+        r = {}
+        for i, z in enumerate(pts):
+            si = str(n_rotations) + "_" + str(i)
+            r["corner" + si + "X"] = x + z[0] - s/2
+            r["corner" + si + "Y"] = y + z[1] - s/2
+            r["corner" + si] = dot_color_map[int(corner_colors[i])]
+        return r
+
+def get_template():
+    html_base = '''
+    <html>
+    <head><style>
+    #target{
+        width: 50px;
+        height: 50px;
+        background-color: #000;
+        border-radius: 50%;
+        margin: 12px;
+    }
+    .corner {
+      position: absolute;
+    }
+    .top {
+      top: 0;
+    }
+    .bottom {
+      bottom: 0;
+    }
+    .right {
+      right: 0;
+    }
+    .right div {
+      float: right;
+    }
+    .left {
+      left: 0;
+    }
+    .left div {
+      float: left;
+    }
+    .clear {
+      clear: both;
+      float: none;
+    }
+    #code {
+      position: absolute;
+      left: 100px;
+      right: 100px;
+      top: 74px;
+      bottom: 74px;
+      overflow: hidden;
+      font-size: 12px;
+      line-height: 1.3;
+      font-family: monospace;
+    }
+    #title {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      width: 240px;
+      margin-left: -120px;
+      text-align: center;
+      font-size: 16px;
+      font-family: san-serif;
+    }
+    </style></head>
+    <body>
+    <div class="corner top left">
+      <div>
+        <div id="target" style="background-color: $corner0_6"></div>
+        <div id="target" style="background-color: $corner0_5"></div>
+        <div id="target" style="background-color: $corner0_4"></div>
+        <div id="target" style="background-color: $corner0_3"></div>
+      </div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner0_2"></div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner0_1"></div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner0_0"></div>
+      <div class="clear"></div>
+    </div>
+    <div class="corner top right">
+      <div>
+        <div id="target" style="background-color: $corner1_0"></div>
+        <div id="target" style="background-color: $corner1_1"></div>
+        <div id="target" style="background-color: $corner1_2"></div>
+        <div id="target" style="background-color: $corner1_3"></div>
+      </div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner1_4"></div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner1_5"></div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner1_6"></div>
+      <div class="clear"></div>
+    </div>
+    <div class="corner bottom right">
+      <div id="target" style="background-color: $corner2_6"></div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner2_5"></div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner2_4"></div>
+      <div class="clear"></div>
+      <div>
+        <div id="target" style="background-color: $corner2_3"></div>
+        <div id="target" style="background-color: $corner2_2"></div>
+        <div id="target" style="background-color: $corner2_1"></div>
+        <div id="target" style="background-color: $corner2_0"></div>
+      </div>
+      <div class="clear"></div>
+    </div>
+    <div class="corner bottom left">
+      <div id="target" style="background-color: $corner2_6"></div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner2_5"></div>
+      <div class="clear"></div>
+      <div id="target" style="background-color: $corner2_4"></div>
+      <div class="clear"></div>
+      <div>
+        <div id="target" style="background-color: $corner2_3"></div>
+        <div id="target" style="background-color: $corner2_2"></div>
+        <div id="target" style="background-color: $corner2_1"></div>
+        <div id="target" style="background-color: $corner2_0"></div>
+      </div>
+      <div class="clear"></div>
+    </div>
+    <pre id="code">$code</pre>
+    <div id="title">
+    $title
+    </div>
+    </body>
+    </html>
+    '''
+    return Template(html_base)
 
 
 def calc_corner_colors(program_id):
