@@ -137,7 +137,7 @@ class Example(wx.Frame):
         with open(filename, 'wb') as f:
             f.write(r.content)
 
-        subprocess.run(["/usr/bin/lpr", "program_print_cache.pdf"])
+        subprocess.call(["/usr/bin/lpr", "program_print_cache.pdf"])
 
     def OnPrintDialog(self, program_id, code, name):
         program_id = int(program_id)
