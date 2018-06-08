@@ -345,17 +345,17 @@ def get_template():
       <div class="clear"></div>
     </div>
     <div class="corner bottom left">
-      <div id="target" style="background-color: $corner3_0"></div>
+      <div id="target" style="background-color: $corner3_6"></div>
       <div class="clear"></div>
-      <div id="target" style="background-color: $corner3_1"></div>
+      <div id="target" style="background-color: $corner3_5"></div>
       <div class="clear"></div>
-      <div id="target" style="background-color: $corner3_2"></div>
+      <div id="target" style="background-color: $corner3_4"></div>
       <div class="clear"></div>
       <div>
         <div id="target" style="background-color: $corner3_3"></div>
-        <div id="target" style="background-color: $corner3_4"></div>
-        <div id="target" style="background-color: $corner3_5"></div>
-        <div id="target" style="background-color: $corner3_6"></div>
+        <div id="target" style="background-color: $corner3_2"></div>
+        <div id="target" style="background-color: $corner3_1"></div>
+        <div id="target" style="background-color: $corner3_0"></div>
       </div>
       <div class="clear"></div>
     </div>
