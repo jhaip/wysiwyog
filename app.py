@@ -38,6 +38,7 @@ class Master:
 
         n_programs = c.execute("SELECT COUNT(*) FROM programs").fetchone()[0]
         if n_programs == 0:
+            logging.error("SEEDING DATABASE")
             self.create_program("boot", "programs/boot.py", 0)
             self.create_program("one_tick", "programs/one_tick.py", 1)
             self.create_program("clock", "programs/clock.py", 2)
@@ -47,7 +48,10 @@ class Master:
             self.create_program("projector", "programs/projector.py", 6)
             self.create_program("run_papers", "programs/run_papers.py", 7)
             self.create_program("http_rpc", "programs/http_rpc.py", 8)
+            self.create_program("gui_projector", "programs/gui_projector.py", 9)
+            self.create_program("frame-to-dots", "programs/frame-to-dots.py", 10)
             self.create_program("code_mgmt_test", "programs/code_mgmt_test.py", 99)
+            self.create_program("taco", "programs/taco--670.py", 670)
 
     def _init_program_state(self):
         c = conn.cursor()
@@ -168,6 +172,7 @@ class Master:
             path = row[0]
             name = row[1]
         if path is None:
+            logging.error("Program not found: ", program_id)
             return None
         p = Path(path)
         text = p.read_text()
