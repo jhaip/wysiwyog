@@ -53,6 +53,7 @@ class Example(wx.Frame):
         # dc.DrawText('Historical Prices', 90, 235)
 
         dc = wx.BufferedPaintDC(self)
+        gc = wx.GraphicsContext.Create(dc)
         dc.SetBackground(wx.Brush(wx.Colour(0,0,0)))
         dc.Clear()
         dc.SetTextForeground(wx.Colour(255,255,255))
@@ -80,8 +81,12 @@ class Example(wx.Frame):
                             tri1.append(corner)
                         if corner["CornerId"] in [2,3,0]:
                             tri2.append(corner)
-                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
-                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
+
+                    # Highlight full shape:
+                    # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
+                    # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
+
+                    self.draw_paper(gc, paper)
                 if len(paper["corners"]) == 3:
                     tri1 = paper["corners"]
                     pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
@@ -113,44 +118,44 @@ class Example(wx.Frame):
             for i, w in enumerate(self.draw_wishes):
                 dc.DrawText(w, 20, 20 + 20*i)
 
-        # Graphics Context tests:
-        gc = wx.GraphicsContext.Create(dc)
-        gc.SetFont(font, wx.Colour(255,255,255))
+    def dist(self, p1, p2):
+        return math.sqrt( (p1["x"] - p2["x"])**2 + (p1["y"] - p2["y"])**2 )
+
+    def draw_paper(self, gc, paper):
+        tl = None
+        tr = None
+        bl = None
+        for corner in paper["corners"]:
+            if corner["CornerId"] == 0:
+                tl = corner
+            elif corner["CornerId"] == 1:
+                tr = corner
+            elif corner["CornerId"] == 3:
+                bl = corner
+        paper_width = self.dist(tl, tr)
+        paper_height = self.dist(tl, bl)
+        paper_origin = tl
+        paper_angle = math.atan2(tr["y"] - tl["y"], tr["x"] - tl["x"])
+        paper_font = wx.Font(int(paper_width/10), wx.DEFAULT, wx.NORMAL, wx.BOLD)
+
         gc.BeginLayer(1.0)
 
         gc.PushState()
-        gc.Translate(100, 0)
-        gc.Rotate(math.radians(45))
+        gc.Translate(paper_origin["x"], paper_origin["y"])
+        gc.Rotate(paper_angle)
 
-        gc.SetPen(wx.Pen("navy", 1))
-        gc.SetBrush(wx.Brush("blue"))
+        gc.SetPen(wx.Pen("red", 3))
+        # gc.SetBrush(wx.Brush("blue"))
 
-
-        gc.DrawRectangle(0, 0, 100, 100)
-        img = wx.Image("./test_image.png", wx.BITMAP_TYPE_ANY)
-        bmp = gc.CreateBitmapFromImage(img)
-        gc.DrawBitmap(bmp, 100, 0, img.GetWidth(), img.GetHeight())
-        gc.DrawText("Hello World", 0, 0)
-
-        gc.PopState()
-        gc.EndLayer()
-        gc.BeginLayer(1.0)
-
-        gc.PushState()
-        gc.Translate(0, 200)
-        gc.Rotate(math.radians(0))
-
-        gc = wx.GraphicsContext.Create(dc)
-        gc.SetFont(font, wx.Colour(255,255,255))
-        gc.SetPen(wx.Pen("navy", 1))
-        gc.SetBrush(wx.Brush("blue"))
-        gc.DrawRectangle(0, 0, 100, 100)
-        gc.DrawText("Hello World 2", 0, 0)
+        gc.DrawRectangle(0, 0, paper_width, paper_height)
+        # img = wx.Image("./test_image.png", wx.BITMAP_TYPE_ANY)
+        # bmp = gc.CreateBitmapFromImage(img)
+        # gc.DrawBitmap(bmp, 100, 0, img.GetWidth(), img.GetHeight())
+        gc.SetFont(paper_font, wx.Colour(255,255,255))
+        gc.DrawText("Paper "+str(paper["id"]), 0, 0)
 
         gc.PopState()
         gc.EndLayer()
-
-
 
     def project(self, pts):
         if self.projection_matrix is not None:
