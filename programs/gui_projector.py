@@ -4,6 +4,7 @@ import time
 import RPCClient
 import logging
 import numpy as np
+import math
 
 logging.basicConfig(level=logging.INFO)
 
@@ -61,11 +62,12 @@ class Example(wx.Frame):
         dc.SetFont(font)
         # if self.bmp:
         #     dc.DrawBitmap(self.bmp, 0, 0)
-        # for dot in self.dots:
-        #     dc.SetBrush(wx.Brush(wx.Colour(dot["color"][0], dot["color"][1], dot["color"][2])))
-        #     dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
-        #     s = 3
-        #     dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
+        if self.dots:
+            for dot in self.dots:
+                dc.SetBrush(wx.Brush(wx.Colour(dot["color"][0], dot["color"][1], dot["color"][2])))
+                dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
+                s = 3
+                dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
         if self.papers:
             for paper in self.papers:
                 dc.SetPen(wx.NullPen)
@@ -110,6 +112,45 @@ class Example(wx.Frame):
         if self.draw_wishes:
             for i, w in enumerate(self.draw_wishes):
                 dc.DrawText(w, 20, 20 + 20*i)
+
+        # Graphics Context tests:
+        gc = wx.GraphicsContext.Create(dc)
+        gc.SetFont(font, wx.Colour(255,255,255))
+        gc.BeginLayer(1.0)
+
+        gc.PushState()
+        gc.Translate(100, 0)
+        gc.Rotate(math.radians(45))
+
+        gc.SetPen(wx.Pen("navy", 1))
+        gc.SetBrush(wx.Brush("blue"))
+
+
+        gc.DrawRectangle(0, 0, 100, 100)
+        img = wx.Image("./test_image.png", wx.BITMAP_TYPE_ANY)
+        bmp = gc.CreateBitmapFromImage(img)
+        gc.DrawBitmap(bmp, 100, 0, img.GetWidth(), img.GetHeight())
+        gc.DrawText("Hello World", 0, 0)
+
+        gc.PopState()
+        gc.EndLayer()
+        gc.BeginLayer(1.0)
+
+        gc.PushState()
+        gc.Translate(0, 200)
+        gc.Rotate(math.radians(0))
+
+        gc = wx.GraphicsContext.Create(dc)
+        gc.SetFont(font, wx.Colour(255,255,255))
+        gc.SetPen(wx.Pen("navy", 1))
+        gc.SetBrush(wx.Brush("blue"))
+        gc.DrawRectangle(0, 0, 100, 100)
+        gc.DrawText("Hello World 2", 0, 0)
+
+        gc.PopState()
+        gc.EndLayer()
+
+
 
     def project(self, pts):
         if self.projection_matrix is not None:
