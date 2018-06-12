@@ -56,19 +56,19 @@ class Example(wx.Frame):
         logging.error("OnNewPaperButtonClicked")
         val = self.paperNameTextField.GetValue()
         logging.error(val)
-        if val and len(val) > 1:
+        if val and len(val) > 0:
             self.make_new_paper(val)
 
     def OnReprintButtonClicked(self, e):
         val = self.paperIdTextField.GetValue()
-        if val and len(val) > 1:
+        if val and len(val) > 0:
             self.load_paper(val, self.OnPrintDialog)
 
     def OnLoadPaperButtonClicked(self, e):
         val = self.paperIdTextField.GetValue()
         def update_editor_text(program_id, code, name):
             self.editor.SetValue(code)
-        if val and len(val) > 1:
+        if val and len(val) > 0:
             self.load_paper(val, update_editor_text)
 
     def OnSaveButtonClicked(self, e):
