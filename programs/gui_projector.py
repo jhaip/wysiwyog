@@ -5,6 +5,7 @@ import RPCClient
 import logging
 import numpy as np
 import math
+import json
 
 logging.basicConfig(level=logging.INFO)
 
@@ -69,6 +70,22 @@ class Example(wx.Frame):
                 dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
                 s = 3
                 dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
+
+        paper_draw_wishes = {}
+        if self.draw_wishes:
+            for wish in self.draw_wishes:
+                wish_options = wish.get("options")
+                if type(wish_options) is dict:
+                    for target in wish_options:
+                        target_commands = wish_options[target]
+                        if target not in paper_draw_wishes:
+                            paper_draw_wishes[target] = []
+                        paper_draw_wishes[target].extend(target_commands)
+                else:
+                    print("TYPE ISN't DICT")
+                    print(wish)
+            self.draw_global_wishes(paper_draw_wishes.get("global"))
+
         if self.papers:
             for paper in self.papers:
                 dc.SetPen(wx.NullPen)
@@ -86,7 +103,7 @@ class Example(wx.Frame):
                     # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
                     # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
 
-                    self.draw_paper(gc, paper)
+                    self.draw_paper(gc, paper, paper_draw_wishes.get(paper["id"]))
                 if len(paper["corners"]) == 3:
                     tri1 = paper["corners"]
                     pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
@@ -114,14 +131,16 @@ class Example(wx.Frame):
         #             elif c == '3':
         #                 dc.SetBrush(wx.Brush(wx.Colour(200, 200, 200)))
         #             dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]+10-s, s*2, s*2)
-        if self.draw_wishes:
-            for i, w in enumerate(self.draw_wishes):
-                dc.DrawText(w, 20, 20 + 20*i)
 
     def dist(self, p1, p2):
         return math.sqrt( (p1["x"] - p2["x"])**2 + (p1["y"] - p2["y"])**2 )
 
-    def draw_paper(self, gc, paper):
+    def draw_global_wishes(self, commands):
+        if not commands:
+            return
+        print("TODO")
+
+    def draw_paper(self, gc, paper, draw_commands):
         tl = None
         tr = None
         bl = None
@@ -148,11 +167,30 @@ class Example(wx.Frame):
         # gc.SetBrush(wx.Brush("blue"))
 
         gc.DrawRectangle(0, 0, paper_width, paper_height)
+
         # img = wx.Image("./test_image.png", wx.BITMAP_TYPE_ANY)
         # bmp = gc.CreateBitmapFromImage(img)
         # gc.DrawBitmap(bmp, 100, 0, img.GetWidth(), img.GetHeight())
         gc.SetFont(paper_font, wx.Colour(255,255,255))
-        gc.DrawText("Paper "+str(paper["id"]), 0, 0)
+        # gc.DrawText("Paper "+str(paper["id"]), 0, 0)
+
+        if draw_commands:
+            print(draw_commands)
+            for command in draw_commands:
+                typ = command.get("type")
+                opt = command.get("options")
+                if typ == "rectangle":
+                    if opt:
+                        gc.DrawRectangle(opt["x"], opt["y"], opt["w"], opt["h"])
+                elif typ == 'text':
+                    if opt:
+                        print("DRAWING TEXT")
+                        gc.DrawText(opt["text"], opt["x"], opt["y"])
+                    else:
+                        print("would draw text but missing opt")
+                else:
+                    print("Unrecognized command:")
+                    print(command)
 
         gc.PopState()
         gc.EndLayer()
@@ -172,9 +210,17 @@ class Example(wx.Frame):
 
             wishes = self.M.get_wishes_by_type("DRAW")
             # logging.info("PROJECTOR: " + str(wishes))
-            self.draw_wishes = ["test"]
+            self.draw_wishes = []
             for wish in wishes:
-                self.draw_wishes.append("%s %s" % (wish["source"], wish["action"],))
+                draw_options = {}
+                try:
+                    draw_options = json.loads(wish.get("action"))
+                except:
+                    pass
+                self.draw_wishes.append({
+                    "source": wish["source"],
+                    "options": draw_options
+                })
             # logging.info("PROJECTION: " + str(result))
             # self.M.clear_wishes({"type": "DRAW"})
             # self.i += 2
