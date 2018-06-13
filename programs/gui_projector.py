@@ -156,6 +156,7 @@ class Example(wx.Frame):
         paper_origin = tl
         paper_angle = math.atan2(tr["y"] - tl["y"], tr["x"] - tl["x"])
         paper_font = wx.Font(int(paper_width/10), wx.DEFAULT, wx.NORMAL, wx.BOLD)
+        paper_font_color = wx.Colour(255,255,255)
 
         gc.BeginLayer(1.0)
 
@@ -171,23 +172,60 @@ class Example(wx.Frame):
         # img = wx.Image("./test_image.png", wx.BITMAP_TYPE_ANY)
         # bmp = gc.CreateBitmapFromImage(img)
         # gc.DrawBitmap(bmp, 100, 0, img.GetWidth(), img.GetHeight())
-        gc.SetFont(paper_font, wx.Colour(255,255,255))
+        gc.SetFont(paper_font, paper_font_color)
         # gc.DrawText("Paper "+str(paper["id"]), 0, 0)
+
+        gc.SetPen(wx.Pen("white"))
+        gc.SetBrush(wx.Brush("blue"))
 
         if draw_commands:
             print(draw_commands)
             for command in draw_commands:
-                typ = command.get("type")
+                command_type = command.get("type")
                 opt = command.get("options")
-                if typ == "rectangle":
+                if command_type == "rectangle":
                     if opt:
                         gc.DrawRectangle(opt["x"], opt["y"], opt["w"], opt["h"])
-                elif typ == 'text':
+                elif command_type == "ellipse":
+                    if opt:
+                        gc.DrawEllipse(opt["x"], opt["y"], opt["w"], opt["h"])
+                elif command_type == 'text':
                     if opt:
                         print("DRAWING TEXT")
                         gc.DrawText(opt["text"], opt["x"], opt["y"])
                     else:
                         print("would draw text but missing opt")
+                elif command_type == 'line':
+                    if opt and len(opt) == 4:
+                        # actually only drawing 1 line
+                        gc.DrawLines([wx.Point2D(opt[0], opt[1]), wx.Point2D(opt[2], opt[3])])
+                    else:
+                        print("bad line")
+                        print(opt)
+                elif command_type == 'fill':
+                    if opt:
+                        if type(opt) is str:
+                            gc.SetBrush(wx.Brush(opt))  # color name like "blue"
+                        elif len(opt) is 3:
+                            gc.SetBrush(wx.Brush(wx.Colour(opt[0], opt[1], opt[2])))  # RGB
+                        else:
+                            gc.SetBrush(wx.Brush(wx.Colour(opt[0], opt[1], opt[2], opt[3])))  # RGBA
+                elif command_type == 'stroke':
+                    if opt:
+                        if type(opt) is str:
+                            gc.SetPen(wx.Pen(opt))  # color name like "blue"
+                        elif len(opt) is 3:
+                            gc.SetPen(wx.Pen(wx.Colour(opt[0], opt[1], opt[2])))  # RGB
+                        else:
+                            gc.SetPen(wx.Pen(wx.Colour(opt[0], opt[1], opt[2], opt[3])))  # RGBA
+                elif command_type == 'fontsize':
+                    if opt:
+                        paper_font = wx.Font(opt, wx.DEFAULT, wx.NORMAL, wx.BOLD)
+                        gc.SetFont(paper_font, paper_font_color)
+                elif command_type == 'fontcolor':
+                    if opt and len(opt) == 3:
+                        paper_font_color = wx.Colour(opt[0], opt[1], opt[2])
+                        gc.SetFont(paper_font, paper_font_color)
                 else:
                     print("Unrecognized command:")
                     print(command)
