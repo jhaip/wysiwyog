@@ -111,4 +111,4 @@ class Illumination:
     def package(self):
         d = {}
         d[str(self.target)] = self.illuminations
-        return json.dumps(json.dumps(d))
+        return json.dumps(d)
