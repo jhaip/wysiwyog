@@ -2,6 +2,7 @@ import zmq
 import logging
 import json
 import requests
+import IlluminationHelper
 
 logging.basicConfig(level=logging.INFO)
 
@@ -79,3 +80,6 @@ class RPCClient:
 
     def update_program(self, program_id, new_code):
         return self._rpc("update_program", {"program_id": program_id, "new_code": new_code})
+
+    def new_illumination(self):
+        return IlluminationHelper.Illumination()
