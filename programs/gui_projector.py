@@ -175,8 +175,11 @@ class Example(wx.Frame):
         gc.SetFont(paper_font, paper_font_color)
         # gc.DrawText("Paper "+str(paper["id"]), 0, 0)
 
-        gc.SetPen(wx.Pen("white"))
-        gc.SetBrush(wx.Brush("blue"))
+        last_pen = wx.Pen("white")
+        last_stroke_width = 1
+        last_brush = wx.Brush("blue")
+        gc.SetPen(last_pen)
+        gc.SetBrush(last_brush)
 
         if draw_commands:
             print(draw_commands)
@@ -205,19 +208,33 @@ class Example(wx.Frame):
                 elif command_type == 'fill':
                     if opt:
                         if type(opt) is str:
-                            gc.SetBrush(wx.Brush(opt))  # color name like "blue"
+                            last_brush = wx.Brush(opt)  # color name like "blue"
                         elif len(opt) is 3:
-                            gc.SetBrush(wx.Brush(wx.Colour(opt[0], opt[1], opt[2])))  # RGB
+                            last_brush = wx.Brush(wx.Colour(opt[0], opt[1], opt[2]))  # RGB
                         else:
-                            gc.SetBrush(wx.Brush(wx.Colour(opt[0], opt[1], opt[2], opt[3])))  # RGBA
+                            last_brush = wx.Brush(wx.Colour(opt[0], opt[1], opt[2], opt[3]))  # RGBA
+                        wx.SetBrush(last_brush)
                 elif command_type == 'stroke':
                     if opt:
                         if type(opt) is str:
-                            gc.SetPen(wx.Pen(opt))  # color name like "blue"
+                            last_pen = wx.Pen(opt)  # color name like "blue"
                         elif len(opt) is 3:
-                            gc.SetPen(wx.Pen(wx.Colour(opt[0], opt[1], opt[2])))  # RGB
+                            last_pen = wx.Pen(wx.Colour(opt[0], opt[1], opt[2]))  # RGB
                         else:
-                            gc.SetPen(wx.Pen(wx.Colour(opt[0], opt[1], opt[2], opt[3])))  # RGBA
+                            last_pen = wx.Pen(wx.Colour(opt[0], opt[1], opt[2], opt[3]))  # RGBA
+                        last_pen.SetWidth(last_stroke_width)
+                        gc.SetPen(last_pen)
+                elif command_type == 'nostroke':
+                    last_pen.SetStyle(wx.PENSTYLE_TRANSPARENT)
+                    gc.SetPen(last_pen)
+                elif command_type == 'nofill':
+                    last_brush.SetStyle(wx.BRUSHSTYLE_TRANSPARENT)
+                    gc.SetBrush(last_brush)
+                elif command_type == 'strokewidth':
+                    if opt:
+                        last_stroke_width = int(opt)
+                        last_pen.SetWidth(last_stroke_width)
+                        gc.SetPen(last_pen)
                 elif command_type == 'fontsize':
                     if opt:
                         paper_font = wx.Font(opt, wx.DEFAULT, wx.NORMAL, wx.BOLD)
@@ -226,6 +243,19 @@ class Example(wx.Frame):
                     if opt and len(opt) == 3:
                         paper_font_color = wx.Colour(opt[0], opt[1], opt[2])
                         gc.SetFont(paper_font, paper_font_color)
+                elif command_type == 'push':
+                    gc.PushState()
+                elif command_type == 'pop':
+                    gc.PushState()
+                elif command_type == 'translate':
+                    if opt:
+                        gc.Translate(opt["x"], opt["y"])
+                elif command_type == 'rotate':
+                    if opt:
+                        gc.Rotate(opt)
+                elif command_type == 'scale':
+                    if opt:
+                        gc.Translate(opt["x"], opt["y"])
                 else:
                     print("Unrecognized command:")
                     print(command)
