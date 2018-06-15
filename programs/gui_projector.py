@@ -213,7 +213,7 @@ class Example(wx.Frame):
                             last_brush = wx.Brush(wx.Colour(opt[0], opt[1], opt[2]))  # RGB
                         else:
                             last_brush = wx.Brush(wx.Colour(opt[0], opt[1], opt[2], opt[3]))  # RGBA
-                        wx.SetBrush(last_brush)
+                        gc.SetBrush(last_brush)
                 elif command_type == 'stroke':
                     if opt:
                         if type(opt) is str:

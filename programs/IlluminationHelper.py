@@ -6,7 +6,8 @@ logging.basicConfig(level=logging.INFO)
 
 class Illumination:
 
-    def __init__(self):
+    def __init__(self, target):
+        self.target = target
         self.illuminations = []
 
     def rectangle(self, x, y, w, h):
@@ -108,4 +109,6 @@ class Illumination:
         })
 
     def package(self):
-        return json.dumps(self.illuminations)
+        d = {}
+        d[str(self.target)] = self.illuminations
+        return json.dumps(json.dumps(d))
