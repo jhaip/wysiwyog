@@ -62,6 +62,7 @@ class Example(wx.Frame):
         font =  dc.GetFont()
         font.SetWeight(wx.FONTWEIGHT_BOLD)
         dc.SetFont(font)
+
         # if self.bmp:
         #     dc.DrawBitmap(self.bmp, 0, 0)
         if self.dots:
@@ -84,7 +85,8 @@ class Example(wx.Frame):
                 else:
                     print("TYPE ISN't DICT")
                     print(wish)
-            self.draw_global_wishes(paper_draw_wishes.get("global"))
+
+        self.draw_global_wishes(gc, paper_draw_wishes.get("global"))
 
         if self.papers:
             for paper in self.papers:
@@ -135,39 +137,14 @@ class Example(wx.Frame):
     def dist(self, p1, p2):
         return math.sqrt( (p1["x"] - p2["x"])**2 + (p1["y"] - p2["y"])**2 )
 
-    def draw_global_wishes(self, commands):
+    def draw_global_wishes(self, gc, commands):
         if not commands:
             return
-        print("TODO")
+        self.draw_commands(gc, commands, CAM_WIDTH)
 
-    def draw_paper(self, gc, paper, draw_commands):
-        tl = None
-        tr = None
-        bl = None
-        for corner in paper["corners"]:
-            if corner["CornerId"] == 0:
-                tl = corner
-            elif corner["CornerId"] == 1:
-                tr = corner
-            elif corner["CornerId"] == 3:
-                bl = corner
-        paper_width = self.dist(tl, tr)
-        paper_height = self.dist(tl, bl)
-        paper_origin = tl
-        paper_angle = math.atan2(tr["y"] - tl["y"], tr["x"] - tl["x"])
-        paper_font = wx.Font(int(paper_width/10), wx.DEFAULT, wx.NORMAL, wx.BOLD)
+    def draw_commands(self, gc, draw_commands, width):
+        paper_font = wx.Font(int(width/10), wx.DEFAULT, wx.NORMAL, wx.BOLD)
         paper_font_color = wx.Colour(255,255,255)
-
-        gc.BeginLayer(1.0)
-
-        gc.PushState()
-        gc.Translate(paper_origin["x"], paper_origin["y"])
-        gc.Rotate(paper_angle)
-
-        gc.SetPen(wx.Pen("red", 3))
-        # gc.SetBrush(wx.Brush("blue"))
-
-        gc.DrawRectangle(0, 0, paper_width, paper_height)
 
         # img = wx.Image("./test_image.png", wx.BITMAP_TYPE_ANY)
         # bmp = gc.CreateBitmapFromImage(img)
@@ -195,7 +172,10 @@ class Example(wx.Frame):
                 elif command_type == 'text':
                     if opt:
                         print("DRAWING TEXT")
-                        gc.DrawText(opt["text"], opt["x"], opt["y"])
+                        lines = opt["text"].split("\n")
+                        line_height = paper_font.GetPixelSize().GetHeight() * 1.3
+                        for i, l in enumerate(lines):
+                            gc.DrawText(l, opt["x"], opt["y"] + i * line_height)
                     else:
                         print("would draw text but missing opt")
                 elif command_type == 'line':
@@ -259,6 +239,35 @@ class Example(wx.Frame):
                 else:
                     print("Unrecognized command:")
                     print(command)
+
+    def draw_paper(self, gc, paper, draw_commands):
+        tl = None
+        tr = None
+        bl = None
+        for corner in paper["corners"]:
+            if corner["CornerId"] == 0:
+                tl = corner
+            elif corner["CornerId"] == 1:
+                tr = corner
+            elif corner["CornerId"] == 3:
+                bl = corner
+        paper_width = self.dist(tl, tr)
+        paper_height = self.dist(tl, bl)
+        paper_origin = tl
+        paper_angle = math.atan2(tr["y"] - tl["y"], tr["x"] - tl["x"])
+
+        gc.BeginLayer(1.0)
+
+        gc.PushState()
+        gc.Translate(paper_origin["x"], paper_origin["y"])
+        gc.Rotate(paper_angle)
+
+        gc.SetPen(wx.Pen("red", 3))
+        # gc.SetBrush(wx.Brush("blue"))
+
+        gc.DrawRectangle(0, 0, paper_width, paper_height)
+
+        self.draw_commands(gc, draw_commands, paper_width)
 
         gc.PopState()
         gc.EndLayer()
