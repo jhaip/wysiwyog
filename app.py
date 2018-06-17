@@ -52,6 +52,8 @@ class Master:
             self.create_program("frame-to-dots", "programs/frame-to-dots.py", 10)
             self.create_program("code_mgmt_test", "programs/code_mgmt_test.py", 99)
             self.create_program("taco", "programs/taco--670.py", 670)
+            self.create_program("draw_angle", "programs/draw_angle--1790.py", 1790)
+            self.create_program("paper_dot_counter", "programs/paper_dot_counter--1691.py", 1691)
 
     def _init_program_state(self):
         c = conn.cursor()
