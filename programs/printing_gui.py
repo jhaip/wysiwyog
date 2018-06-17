@@ -147,7 +147,7 @@ class Example(wx.Frame):
         pd = wx.PrintData()
         pd.SetPrinterName("")
         pd.SetOrientation(wx.PORTRAIT)
-        pd.SetPaperId(wx.PAPER_LETTER)  # 612 × 792
+        pd.SetPaperId(wx.PAPER_LETTER)  # 612 x 792
         pd.SetQuality(wx.PRINT_QUALITY_DRAFT)
         # Black and white printing if False.
         pd.SetColour(True)
