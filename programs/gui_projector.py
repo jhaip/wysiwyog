@@ -246,11 +246,11 @@ class Example(wx.Frame):
         bl = None
         for corner in paper["corners"]:
             if corner["CornerId"] == 0:
-                tl = corner
+                tl = self.project2(corner)
             elif corner["CornerId"] == 1:
-                tr = corner
+                tr = self.project2(corner)
             elif corner["CornerId"] == 3:
-                bl = corner
+                bl = self.project2(corner)
         paper_width = self.dist(tl, tr)
         paper_height = self.dist(tl, bl)
         paper_origin = tl
@@ -274,11 +274,28 @@ class Example(wx.Frame):
 
     def project(self, pts):
         if self.projection_matrix is not None:
-            return pts
-            # dst = cv2.perspectiveTransform(np.array([np.float32(pts)]), self.projection_matrix)
-            # return list(map(lambda x: [int(x[0]), int(x[1])], dst[0]))
+            # return pts
+            dst = cv2.perspectiveTransform(np.array([np.float32(pts)]), self.projection_matrix)
+            return list(map(lambda x: [int(x[0]), int(x[1])], dst[0]))
         logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
         return None
+
+    def project2(self, _pt):
+        pt = _pt.copy()
+        # logging.error("1:")
+        # logging.error(_pt)
+        # logging.error("2:")
+        # logging.error(pt)
+        # return pt
+        if self.projection_matrix is not None:
+            # return pts
+            pts = [(pt["x"], pt["y"])]
+            dst = cv2.perspectiveTransform(np.array([np.float32(pts)]), self.projection_matrix)
+            pt["x"] = int(dst[0][0][0])
+            pt["y"] = int(dst[0][0][1])
+            return pt
+        logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
+        return pt
 
     def OnTimer(self, event):
         if event.GetId() == Example.ID_TIMER:
