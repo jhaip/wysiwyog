@@ -6,80 +6,108 @@ import IlluminationHelper
 
 logging.basicConfig(level=logging.INFO)
 
+context = zmq.Context()
 
 class RPCClient:
 
-    def __init__(self, use_http=False, rpc_url=None):
-        self.use_http = use_http
-        if self.use_http:
-            logging.info("Using HTTP RPC connection to server")
-            self.RPC_URL = rpc_url
-        else:
-            self.context = zmq.Context()
-            logging.info("Connecting to hello world server…")
-            self.socket = self.context.socket(zmq.REQ)
-            self.socket.connect("tcp://localhost:5555")
-            self.image_socket = self.context.socket(zmq.REQ)
-            self.image_socket.connect("tcp://localhost:5566")
+    def __init__(self, rpc_url='localhost'):
+        self.sub_socket = context.socket(zmq.SUB)
+        self.sub_socket.connect("tcp://{0}:5556".format(rpc_url))
+        self.pub_socket = context.socket(zmq.PUB)
+        self.pub_socket.connect("tcp://{0}:5555".format(rpc_url))
 
-    def _rpc(self, eventName, options):
-        if self.use_http:
-            r = None
-            if eventName in ["get_wishes_by_type", "when", "get_image"]:
-                logging.info("Making a GET Request")
-                r = requests.get(self.RPC_URL, params={"event": eventName, "options": json.dumps(options)})
-            else:
-                logging.info("Making a POST Request")
-                r = requests.post(self.RPC_URL, json={"event": eventName, "options": options})
-            r.raise_for_status()
-            return r.json()
-        else:
-            data = json.dumps({"event": eventName, "options": options})
-            self.socket.send_string(data)
-            message = self.socket.recv_string()
-            return json.loads(message)
+    # def _rpc(self, eventName, options):
+    #     if self.use_http:
+    #         r = None
+    #         if eventName in ["get_wishes_by_type", "when", "get_image"]:
+    #             logging.info("Making a GET Request")
+    #             r = requests.get(self.RPC_URL, params={"event": eventName, "options": json.dumps(options)})
+    #         else:
+    #             logging.info("Making a POST Request")
+    #             r = requests.post(self.RPC_URL, json={"event": eventName, "options": options})
+    #         r.raise_for_status()
+    #         return r.json()
+    #     else:
+    #         data = json.dumps({"event": eventName, "options": options})
+    #         self.socket.send_string(data)
+    #         message = self.socket.recv_string()
+    #         return json.loads(message)
 
     def get_wishes_by_type(self, type):
-        return self._rpc("get_wishes_by_type", type)
+        sub_string = "WISH[{0}/".format(type)
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, sub_string)
+        string = self.sub_socket.recv_string()
+        val = string[len(sub_string):]
+        json_val = json.loads(val)
+        return json_val
 
     def clear_wishes(self, opts):
-        return self._rpc("clear_wishes", opts)
+        # return self._rpc("clear_wishes", opts)
+        # TODO
+        return None
 
     def wish(self, type, source, action):
-        return self._rpc("wish", {"type": type, "source": source, "action": action})
+        s = "WISH[{0}/{1}]{2}".format(type, source, action)
+        self.pub_socket.send_string(s)
 
     def claim(self, source, key, value):
-        return self._rpc("claim", {"source": source, "key": key, "value": value})
+        json_value = json.dumps(value)
+        s = "CLAIM[{0}/{1}]{2}".format(source, key, json_value)
+        self.pub_socket.send_string(s)
+
+    def fastclaim(self, source, key, value):
+        # TODO: remove
+        return None
 
     def when(self, source, key, callback):
-        val = self._rpc("when", {"source": source, "key": key})
-        callback(val)
+        json_val = self.when_no_callback(source, key)
+        callback(json_val)
+
+    def when_multiple(self, whens):
+        for when in whens:
+            sub_string = "CLAIM[{0}/{1}]".format(when["source"], when["key"])
+            self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, sub_string)
+        string = self.sub_socket.recv_string()
+        val = string[len(sub_string):]
+        json_val = json.loads(val)
+        return json_val
 
     def when_no_callback(self, source, key):
-        return self._rpc("when", {"source": source, "key": key})
+        sub_string = "CLAIM[{0}/{1}]".format(source, key)
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, sub_string)
+        string = self.sub_socket.recv_string()
+        val = string[len(sub_string):]
+        json_val = json.loads(val)
+        return json_val
 
     def stop_program(self, id):
-        return self._rpc("stop_program", {"id": id})
+        data = json.dumps({"id": id, "action": "stop"})
+        return self.wish("PROGRAM", "idk", data)
 
     def run_program(self, id, restart=False):
-        return self._rpc("run_program", {"id": id, "restart": restart})
+        data = json.dumps({"id": id, "restart": restart, "action": "run"})
+        return self.wish("PROGRAM", "idk", data)
 
     def set_image(self, image_string):
-        self.image_socket.send(image_string)
-        message = self.image_socket.recv_string()
-        return message
+        # self.image_socket.send(image_string)
+        # message = self.image_socket.recv_string()
+        # return message
+        return None
 
     def get_image(self):
-        data = json.dumps({"event": "get_image", "options": {}})
-        self.socket.send_string(data)
-        message = self.socket.recv()
-        return message
+        # data = json.dumps({"event": "get_image", "options": {}})
+        # self.socket.send_string(data)
+        # message = self.socket.recv()
+        # return message
+        return None
 
     def create_program(self, name):
-        return self._rpc("create_program", {"name": name})
+        data = json.dumps({"action": "create", "name": name})
+        return self.wish("PROGRAM", "idk", data)
 
     def update_program(self, program_id, new_code):
-        return self._rpc("update_program", {"program_id": program_id, "new_code": new_code})
+        data = json.dumps({"action": "update", "id": program_id, "new_code": new_code})
+        return self.wish("PROGRAM", "idk", data)
 
     def new_illumination(self, target):
         return IlluminationHelper.Illumination(target)
