@@ -6,8 +6,10 @@ services:
     volumes:
       - .:/app
     ports:
-      - "5555:5555"  # Main RPC
+      - "5555:5555"  # Main RPC (pub)
+      - "5556:5556"  # Main RPC (sub)
       - "5566:5566"  # Image RPC
+      - "5577:5577"  # Image RPC
       - "5000:5000"  # Flask
     command: ["python", "app.py"]
   pdf:
