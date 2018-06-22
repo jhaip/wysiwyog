@@ -13,7 +13,7 @@ CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
 
 class ShowCapture(wx.Panel):
-    def __init__(self, parent, capture, fps=15):
+    def __init__(self, parent, capture, fps=5):
         wx.Panel.__init__(self, parent)
 
         self.capture = capture
@@ -27,9 +27,10 @@ class ShowCapture(wx.Panel):
         self.dots = []
 
         self.projector_calibration_state = None
-
+        self.blob_detector = self.createSimpleBlobDetector()
 
         self.M = RPCClient.RPCClient()
+        # self.M.set_pub_high_water_mark(2)
 
         self.projector_calibration = [(50, 50), (CAM_WIDTH-50, 50),
                                       (CAM_WIDTH-50, CAM_HEIGHT-50),
@@ -83,27 +84,28 @@ class ShowCapture(wx.Panel):
             dc.DrawEllipse(int(pt[0])-s, int(pt[1])-s, s*2, s*2)
             dc.DrawText("EDITING CORNER " + str(self.projector_calibration_state), CAM_WIDTH/2, CAM_HEIGHT/2)
 
+    def createSimpleBlobDetector(self):
+        params = cv2.SimpleBlobDetector_Params()
+        params.minThreshold = 150
+        params.maxThreshold = 200
+        params.filterByCircularity = True
+        params.minCircularity = 0.5
+        params.filterByArea = True
+        params.minArea = 12
+        params.filterByInertia = False
+        is_v2 = cv2.__version__.startswith("2.")
+        if is_v2:
+            detector = cv2.SimpleBlobDetector(params)
+        else:
+            detector = cv2.SimpleBlobDetector_create(params)
+        return detector
+
     def NextFrame(self, event):
         start = time.time()
 
         ret, frame = (True, self.capture.read())
         if ret:
-
-            params = cv2.SimpleBlobDetector_Params()
-            params.minThreshold = 150
-            params.maxThreshold = 200
-            params.filterByCircularity = True
-            params.minCircularity = 0.5
-            params.filterByArea = True
-            params.minArea = 12
-            params.filterByInertia = False
-            is_v2 = cv2.__version__.startswith("2.")
-            if is_v2:
-                detector = cv2.SimpleBlobDetector(params)
-            else:
-                detector = cv2.SimpleBlobDetector_create(params)
-
-            keypoints = detector.detect(frame)
+            keypoints = self.blob_detector.detect(frame)
 
             # print(self.keypoints)
             def keypointMapFunc(keypoint):
@@ -131,11 +133,11 @@ class ShowCapture(wx.Panel):
 
             # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # self.bmp.CopyFromBuffer(frame)
-
+            #
             # img = wx.Bitmap.ConvertToImage( self.bmp )
             # img_str = img.GetData()
             # self.M.set_image(img_str)
-
+            #
             # self.Refresh()
 
         end = time.time()

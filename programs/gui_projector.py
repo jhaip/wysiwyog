@@ -6,11 +6,46 @@ import logging
 import numpy as np
 import math
 import json
+import zmq
+from threading import Thread
+from wx.lib.pubsub import pub
 
 logging.basicConfig(level=logging.INFO)
 
 CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
+
+context = zmq.Context()
+
+class SubEventThread(Thread):
+    def __init__(self):
+        Thread.__init__(self)
+        self.sub_socket = context.socket(zmq.SUB)
+        # self.sub_socket.set_hwm(5)
+        self.sub_socket.connect("tcp://localhost:5556")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[DRAW/")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/dots]")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/papers]")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/corners]")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/projector_calibration]")
+        self.start()    # start the thread
+
+    def run(self):
+        while True:
+            string = self.sub_socket.recv_string()
+            event_type = val = string.split('[', 1)[0]  # WISH, CLAIM
+            if event_type == "WISH":
+                val = string.split(']', 1)[1]
+                json_val = json.loads(val)
+                wx.CallAfter(pub.sendMessage, "on_wish", val=json_val)
+            elif event_type == "CLAIM":
+                key = (string.split(']', 1)[0]).split('/', 1)[1]
+                val = string.split(']', 1)[1]
+                json_val = json.loads(val)
+                if True or key in ["papers"]:
+                    wx.CallAfter(pub.sendMessage, "on_claim", key=key, val=json_val)
+            # time.sleep(1)
+
 
 class Example(wx.Frame):
     ID_TIMER = 1
@@ -33,13 +68,15 @@ class Example(wx.Frame):
         self.projection_matrix = None
         self.draw_wishes = []
 
-        self.M = RPCClient.RPCClient()
-
         self.timer = wx.Timer(self, Example.ID_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnTimer, id=Example.ID_TIMER)
 
         fps = 20
+        self.firstTime = False
         self.timer.Start(1000./fps)
+
+        pub.subscribe(self.onWish, "on_wish")
+        pub.subscribe(self.onClaim, "on_claim")
 
     def OnPaint(self, e):
         # dc = wx.PaintDC(self)
@@ -102,17 +139,17 @@ class Example(wx.Frame):
                             tri2.append(corner)
 
                     # Highlight full shape:
-                    # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
-                    # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
+                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
+                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
 
-                    self.draw_paper(gc, paper, paper_draw_wishes.get(paper["id"]))
+                    # self.draw_paper(gc, paper, paper_draw_wishes.get(paper["id"]))
                 if len(paper["corners"]) == 3:
                     tri1 = paper["corners"]
                     pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
-                    dc.DrawPolygon(pts)
+                    # dc.DrawPolygon(pts)
                 for corner in paper["corners"]:
                     textPt = self.project([(corner["x"], corner["y"])])[0]
-                    dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), textPt[0], textPt[1])
+                    # dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), textPt[0], textPt[1])
         # if self.corners:
         #     for corner in self.corners:
         #         dc.SetPen(wx.NullPen)
@@ -254,6 +291,7 @@ class Example(wx.Frame):
         paper_width = self.dist(tl, tr)
         paper_height = self.dist(tl, bl)
         paper_origin = tl
+        logging.error(paper_origin)
         paper_angle = math.atan2(tr["y"] - tl["y"], tr["x"] - tl["x"])
 
         gc.BeginLayer(1.0)
@@ -265,7 +303,7 @@ class Example(wx.Frame):
         gc.SetPen(wx.Pen("red", 3))
         # gc.SetBrush(wx.Brush("blue"))
 
-        gc.DrawRectangle(0, 0, paper_width, paper_height)
+        # gc.DrawRectangle(0, 0, paper_width, paper_height)
 
         self.draw_commands(gc, draw_commands, paper_width)
 
@@ -278,7 +316,7 @@ class Example(wx.Frame):
             dst = cv2.perspectiveTransform(np.array([np.float32(pts)]), self.projection_matrix)
             return list(map(lambda x: [int(x[0]), int(x[1])], dst[0]))
         logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
-        return None
+        return pts
 
     def project2(self, _pt):
         pt = _pt.copy()
@@ -297,14 +335,11 @@ class Example(wx.Frame):
         logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
         return pt
 
-    def OnTimer(self, event):
-        if event.GetId() == Example.ID_TIMER:
-
-            start = time.time()
-
-            wishes = self.M.get_wishes_by_type("DRAW")
-            # logging.info("PROJECTOR: " + str(wishes))
-            self.draw_wishes = []
+    def onWish(self, val):
+        self.draw_wishes = []
+        logging.error("onWish")
+        logging.error(wishes)
+        if wishes:
             for wish in wishes:
                 draw_options = {}
                 try:
@@ -315,42 +350,23 @@ class Example(wx.Frame):
                     "source": wish["source"],
                     "options": draw_options
                 })
-            # logging.info("PROJECTION: " + str(result))
-            # self.M.clear_wishes({"type": "DRAW"})
-            # self.i += 2
-            # wxImg = wx.Image()
-            # image_string = self.M.get_image()
-            # # wxImg.SetData(image_string)
-            # wxImg = wx.ImageFromBuffer(CAM_WIDTH, CAM_HEIGHT, image_string)
-            # logging.info("got frame")
 
-            def receiveDots(dots):
-                self.dots = dots
-            dots = self.M.when("global", "dots", receiveDots)
-            # logging.info("got dots %s" % len(self.dots))
-
-            def receivePapers(papers):
-                self.papers = papers
-            self.M.when("global", "papers", receivePapers)
-            # if self.papers:
-            #     logging.info("got papers %s" % len(self.papers))
-
-            def receiveCorners(corners):
-                self.corners = corners
-            self.M.when("global", "corners", receiveCorners)
-            # if self.corners:
-            #     logging.info("got corners %s" % len(self.corners))
-
-            def receiveProjectorCalibration(cal):
-                self.projector_calibration = cal
-            self.M.when("global", "projector_calibration", receiveProjectorCalibration)
-            # logging.info("got projector_calibration %s" % self.projector_calibration)
-
+    def onClaim(self, key, val):
+        logging.error("onClaim")
+        logging.error(key)
+        logging.error(val)
+        if key == "dots":
+            self.dots = val
+        elif key == "papers":
+            self.papers = val
+        elif key == "corners":
+            self.corners = val
+        elif key == "projector_calibration":
+            self.projector_calibration = val
             if self.projector_calibration and len(self.projector_calibration) is 4:
                 pts1 = np.float32(self.projector_calibration)
                 pts2 = np.float32([[0,0],[CAM_WIDTH,0],[CAM_WIDTH,CAM_HEIGHT],[0,CAM_HEIGHT]])
                 self.projection_matrix = cv2.getPerspectiveTransform(pts1, pts2)
-
                 # logging.info("CONVERT PERSPECTIVE")
                 # logging.info(self.projection_matrix)
                 # logging.info(np.float32(self.projector_calibration))
@@ -359,6 +375,27 @@ class Example(wx.Frame):
                 # logging.info("IDENTITY?")
                 # logging.info(dst)
                 # logging.info(list(map(lambda x: [int(x[0]), int(x[1])], dst[0])))
+
+    def OnTimer(self, event):
+        if event.GetId() == Example.ID_TIMER:
+
+            logging.error("start")
+
+            start = time.time()
+
+            if not self.firstTime:
+                logging.error("starting THREAD")
+                self.firstTime = True
+                SubEventThread()
+
+            # logging.info("PROJECTION: " + str(result))
+            # self.M.clear_wishes({"type": "DRAW"})
+            # self.i += 2
+            # wxImg = wx.Image()
+            # image_string = self.M.get_image()
+            # # wxImg.SetData(image_string)
+            # wxImg = wx.ImageFromBuffer(CAM_WIDTH, CAM_HEIGHT, image_string)
+            # logging.info("got frame")
 
             # self.bmp = wxImg.ConvertToBitmap()
 

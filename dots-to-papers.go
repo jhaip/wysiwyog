@@ -61,12 +61,15 @@ func main() {
   fmt.Println("Connecting to hello world server...")
   publisher, _ := zmq.NewSocket(zmq.PUB)
   defer publisher.Close()
+  // publisher.SetSndhwm(1)
   publisher.Connect("tcp://localhost:5555")
   subscriber, _ := zmq.NewSocket(zmq.SUB)
   defer subscriber.Close()
-  subscriber.Connect("tcp://localhost:5556")
+  // subscriber.SetRcvhwm(1)  // subscription queue has only room for 1 message: latest dots
+  // Is this ^ actually working?
   filter := "CLAIM[global/dots]"
   subscriber.SetSubscribe(filter)
+  subscriber.Connect("tcp://localhost:5556")
 
   for {
     start := time.Now()
@@ -477,17 +480,17 @@ func trimLeftChars(s string, n int) string {
     return s[:0]
 }
 
-func getDots(subscriber zmq.NewSocket) []Dot {
+func getDots(subscriber *zmq.Socket) []Dot {
   reply, _ := subscriber.Recv(0)
 	fmt.Println("Received ", reply)
   // "CLAIM[global/dots]" = 18 characters to trim off from beginning of JSON
-  val = trimLeftChars(reply, 18)
+  val := trimLeftChars(reply, 18)
   res := make([]Dot, 0)
 	json.Unmarshal([]byte(val), &res)
   return res
 }
 
-func claimPapers(publisher zmq.NewSocket, papers []Paper) {
+func claimPapers(publisher *zmq.Socket, papers []Paper) {
   papersAlmostStr, _ := json.Marshal(papers)
   papersStr := string(papersAlmostStr)
   fmt.Println(papersStr)
@@ -505,7 +508,7 @@ func printJsonDots(dots []Dot) {
   fmt.Println("---")
 }
 
-func claimCorners(publisher zmq.NewSocket, corners []Corner) {
+func claimCorners(publisher *zmq.Socket, corners []Corner) {
   cornersAlmostStr, err := json.Marshal(corners)
   fmt.Println("Err?")
   fmt.Println(err)

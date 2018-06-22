@@ -16,6 +16,9 @@ class RPCClient:
         self.pub_socket = context.socket(zmq.PUB)
         self.pub_socket.connect("tcp://{0}:5555".format(rpc_url))
 
+    def set_pub_high_water_mark(self, n):
+        self.pub_socket.set_hwm(n)
+
     # def _rpc(self, eventName, options):
     #     if self.use_http:
     #         r = None
