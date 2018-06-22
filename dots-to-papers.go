@@ -11,6 +11,7 @@ import (
   "strconv"
   "image/color"
   "github.com/mattn/go-ciede2000"
+  "github.com/kokardy/listing"
 )
 
 type Vec struct {
@@ -46,15 +47,31 @@ type Paper struct {
   Corners   []PaperCorner `json:"corners"`
 }
 
+type P struct {
+  G [][]int
+  U []int
+  score float64
+}
+
 const CAM_WIDTH = 1920
 const CAM_HEIGHT = 1080
-const dotSize = 9
+const dotSize = 12
 
 func main() {
+  fmt.Println("Connecting to hello world server...")
+  publisher, _ := zmq.NewSocket(zmq.PUB)
+  defer publisher.Close()
+  publisher.Connect("tcp://localhost:5555")
+  subscriber, _ := zmq.NewSocket(zmq.SUB)
+  defer subscriber.Close()
+  subscriber.Connect("tcp://localhost:5556")
+  filter := "CLAIM[global/dots]"
+  subscriber.SetSubscribe(filter)
+
   for {
     start := time.Now()
 
-  	points := getDots()  // getPoints()
+  	points := getDots(subscriber)  // getPoints()
 
     timeGotDots := time.Since(start)
   	// printDots(points)
@@ -68,20 +85,20 @@ func main() {
   	step3 := doStep3(step1, step2)
   	// printCorners(step3)
   	step4 := doStep4CornersWithIds(step1, step3)
-    claimCorners(step4)
+    claimCorners(publisher, step4)
   	// printCorners(step4)
     papers := getPapersFromCorners(step4)
     fmt.Println(papers)
 
     timeProcessing := time.Since(start)
-    claimPapers(papers)
+    claimPapers(publisher, papers)
 
     elapsed := time.Since(start)
     fmt.Printf("get dots  : %s \n", timeGotDots)
     fmt.Printf("processing: %s \n", timeProcessing)
     fmt.Printf("total     : %s \n", elapsed)
 
-    time.Sleep(10 * time.Millisecond)
+    // time.Sleep(10 * time.Millisecond)
   }
 }
 
@@ -250,6 +267,124 @@ func indexOf(word string, data []string) int {
 	return -1
 }
 
+func getColorDistance(a, b [3]int) float64 {
+  return math.Abs(float64(a[0]-b[0])) + math.Abs(float64(a[1]-b[1])) + math.Abs(float64(a[2]-b[2]))
+  // using CIEDE2000 color diff is 5x slower than RGB diff (almost 2ms for one corner)
+  // c1 := &color.RGBA{
+  //   uint8(a[0]),
+  //   uint8(a[1]),
+  //   uint8(a[2]),
+  //   255,
+  // }
+  // c2 := &color.RGBA{
+  //   uint8(b[0]),
+  //   uint8(b[1]),
+  //   uint8(b[2]),
+  //   255,
+  // }
+  // return ciede2000.Diff(c1, c2)
+}
+
+func identifyColorGroups(colors [][3]int, group P) string {
+  color_templates := listing.Permutations(
+    listing.IntReplacer([]int{0,1,2,3}), 4, false, 4,
+  )
+  // fmt.Println(color_templates)
+
+  calibration := [][3]int{[3]int{255, 0, 0}, [3]int{0, 255, 0}, [3]int{0, 0, 255}, [3]int{0, 0, 0}}
+  // calibration := make([][3]int, 4)
+  // calibration[0] = [3]int{190, 55, 49}  // red
+  // calibration[1] = [3]int{168, 164, 145}  // green
+  // calibration[2] = [3]int{148, 151, 190}  // blue
+  // calibration[3] = [3]int{113, 72, 96}  // dark
+
+  minScore := -1.0
+  var bestMatch []int  // index = color, value = index of group in P that matches color
+  for rr := range color_templates {
+    r := rr.(listing.IntReplacer)
+    score := 0.0
+    score += getColorDistance(calibration[0], colors[group.G[r[0]][0]])
+    score += getColorDistance(calibration[1], colors[group.G[r[1]][0]])
+    score += getColorDistance(calibration[2], colors[group.G[r[2]][0]])
+    score += getColorDistance(calibration[3], colors[group.G[r[3]][0]])
+    // fmt.Println(r, score)
+    if minScore == -1 || score < minScore {
+      minScore = score
+      bestMatch = r
+    }
+  }
+
+  // fmt.Println("best match", bestMatch)
+
+  result := make([]string, 7)
+  for i, g := range bestMatch {
+    for _, k := range group.G[g] {
+      result[k] = strconv.Itoa(i)
+    }
+  }
+  // fmt.Println("Result", result)  // Something like "1222203"
+
+  return strings.Join(result, "")
+}
+
+func getGetPaperIdFromColors2(colors [][3]int) (int, int, string) {
+  // color_combinations := combinations_as_list(7, 4)
+  color_combinations := listing.Combinations(
+    listing.IntReplacer([]int{0,1,2,3,4,5,6}), 4, false, 7,
+  )
+  // fmt.Println(color_combinations)
+
+  minScore := -1.0
+  var bestGroup P
+  for rr := range color_combinations {
+    r := rr.(listing.IntReplacer)
+    p := P{G: [][]int{[]int{r[0]}, []int{r[1]}, []int{r[2]}, []int{r[3]} }}
+    // Fill p.U with unused #s
+    for i := 0; i < 7; i += 1 {
+      if r[0] != i && r[1] != i && r[2] != i && r[3] != i {
+        p.U = append(p.U, i)
+      }
+    }
+    // pop of each element in p.U and add to closet colored group
+    for i := 0; i < 3; i += 1 {
+      u_color := colors[p.U[0]]
+      // add element to group closest in color
+      min_i := 0
+      min := getColorDistance(u_color, colors[r[0]])
+      for j := 1; j < 4; j += 1 {
+        d := getColorDistance(u_color, colors[r[j]])
+        if d < min {
+          min = d
+          min_i = j
+        }
+      }
+      p.G[min_i] = append(p.G[min_i], p.U[0])
+      p.U = p.U[1:]
+      p.score += min
+    }
+
+    // fmt.Println(p)
+
+    // Keep track of the grouping with the lowest score
+    if minScore == -1 || p.score < minScore {
+      minScore = p.score
+      bestGroup = p
+    }
+  }
+
+  // fmt.Println("Best group", bestGroup)
+  colorString := identifyColorGroups(colors, bestGroup)
+
+  fmt.Printf("%v \n", colorString)
+  colors8400Index := indexOf(colorString, get8400())
+  if colors8400Index > 0 {
+    paperId := colors8400Index % (8400 / 4)
+    cornerId := colors8400Index / (8400 / 4)
+    return paperId, cornerId, colorString
+  }
+	return -1, -1, colorString
+}
+
 func getGetPaperIdFromColors(colors [][3]int) (int, int, string) {
 	var colorString string
 
@@ -320,7 +455,7 @@ func doStep4CornersWithIds(nodes []Dot, corners []Corner) []Corner {
 	for _, corner := range corners {
 		newCorner := corner
     rawColorsList := append(append(lineToColors(nodes, corner.sides[0], true), corner.Corner.Color), lineToColors(nodes, corner.sides[1], false)...)
-    paperId, cornerId, colorString := getGetPaperIdFromColors(rawColorsList)
+    paperId, cornerId, colorString := getGetPaperIdFromColors2(rawColorsList)
 		newCorner.PaperId = paperId
     newCorner.CornerId = cornerId
     newCorner.ColorString = colorString
@@ -330,45 +465,35 @@ func doStep4CornersWithIds(nodes []Dot, corners []Corner) []Corner {
 	return results
 }
 
-func getDots() []Dot {
-  fmt.Println("Connecting to hello world server...")
-	requester, _ := zmq.NewSocket(zmq.REQ)
-	defer requester.Close()
-	requester.Connect("tcp://localhost:5555")
+// https://stackoverflow.com/questions/48798588/how-do-you-remove-the-first-character-of-a-string
+func trimLeftChars(s string, n int) string {
+    m := 0
+    for i := range s {
+        if m >= n {
+            return s[i:]
+        }
+        m++
+    }
+    return s[:0]
+}
 
-  msg := "{\"event\": \"when\", \"options\": {\"source\": \"global\", \"key\": \"dots\"}}"
-  fmt.Println("Sending ", msg)
-  requester.Send(msg, 0)
-
-  reply, _ := requester.Recv(0)
-  // fmt.Println("Received len: ", len(reply))
+func getDots(subscriber zmq.NewSocket) []Dot {
+  reply, _ := subscriber.Recv(0)
 	fmt.Println("Received ", reply)
-
+  // "CLAIM[global/dots]" = 18 characters to trim off from beginning of JSON
+  val = trimLeftChars(reply, 18)
   res := make([]Dot, 0)
-	json.Unmarshal([]byte(reply), &res)
+	json.Unmarshal([]byte(val), &res)
   return res
 }
 
-func claimPapers(papers []Paper) {
-  fmt.Println("Connecting to hello world server...")
-	requester, _ := zmq.NewSocket(zmq.REQ)
-	defer requester.Close()
-	requester.Connect("tcp://localhost:5555")
-
-  // send hello
+func claimPapers(publisher zmq.NewSocket, papers []Paper) {
   papersAlmostStr, _ := json.Marshal(papers)
   papersStr := string(papersAlmostStr)
   fmt.Println(papersStr)
-  msg := fmt.Sprintf(
-    "{\"event\": \"claim\", \"options\": {\"source\": \"global\", \"key\": \"papers\", \"value\": %s}}",
-    papersStr,
-  )
+  msg := fmt.Sprintf("CLAIM[global/papers]%s", papersStr)
   fmt.Println("Sending ", msg)
-  requester.Send(msg, 0)
-
-  // Wait for reply:
-	reply, _ := requester.Recv(0)
-	fmt.Println("Received ", reply)
+  publisher.Send(msg, 0)
 }
 
 func printJsonDots(dots []Dot) {
@@ -380,28 +505,15 @@ func printJsonDots(dots []Dot) {
   fmt.Println("---")
 }
 
-func claimCorners(corners []Corner) {
-  fmt.Println("Connecting to hello world server...")
-	requester, _ := zmq.NewSocket(zmq.REQ)
-	defer requester.Close()
-	requester.Connect("tcp://localhost:5555")
-
-  // send hello
+func claimCorners(publisher zmq.NewSocket, corners []Corner) {
   cornersAlmostStr, err := json.Marshal(corners)
   fmt.Println("Err?")
   fmt.Println(err)
   cornersStr := string(cornersAlmostStr)
   fmt.Println(cornersStr)
-  msg := fmt.Sprintf(
-    "{\"event\": \"claim\", \"options\": {\"source\": \"global\", \"key\": \"corners\", \"value\": %s}}",
-    cornersStr,
-  )
+  msg := fmt.Sprintf("CLAIM[global/corners]%s", cornersStr)
   fmt.Println("Sending ", msg)
-  requester.Send(msg, 0)
-
-  // Wait for reply:
-	reply, _ := requester.Recv(0)
-	fmt.Println("Received ", reply)
+  publisher.Send(msg, 0)
 }
 
 func getPoints() []Dot {
