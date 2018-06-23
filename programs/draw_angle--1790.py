@@ -39,4 +39,3 @@ def receivePapers(papers):
 
 while True:
     M.when("global", "papers", receivePapers)
-    time.sleep(0.5)
