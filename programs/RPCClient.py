@@ -56,6 +56,7 @@ class RPCClient:
     def claim(self, source, key, value):
         json_value = json.dumps(value)
         s = "CLAIM[{0}/{1}]{2}".format(source, key, json_value)
+        logging.error(s)
         self.pub_socket.send_string(s)
 
     def fastclaim(self, source, key, value):
@@ -65,6 +66,12 @@ class RPCClient:
     def when(self, source, key, callback):
         json_val = self.when_no_callback(source, key)
         callback(json_val)
+
+    def when_set_filter(self, filter_str):
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, filter_str)
+
+    def when_recv(self):
+        return self.sub_socket.recv_string()
 
     def when_multiple(self, whens):
         for when in whens:
@@ -77,10 +84,17 @@ class RPCClient:
 
     def when_no_callback(self, source, key):
         sub_string = "CLAIM[{0}/{1}]".format(source, key)
+        logging.error("looking for: " + sub_string)
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, sub_string)
         string = self.sub_socket.recv_string()
+        logging.error("got string! : " + string)
         val = string[len(sub_string):]
-        json_val = json.loads(val)
+        json_val = val
+        try:
+            json_val = json.loads(val)
+        except:
+            pass
+        logging.error("returning for " + sub_string)
         return json_val
 
     def stop_program(self, id):
