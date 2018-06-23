@@ -3,6 +3,7 @@ import sys
 import RPCClient
 import time
 import math
+import json
 
 logging.basicConfig(level=logging.INFO)
 M = RPCClient.RPCClient()
@@ -92,13 +93,6 @@ def is_dot_in_paper(tl, tr, br, bl, dot):
 
     return n_crosses >= 1 and n_crosses % 2 == 1
 
-def receiveDots(papers, dots):
-    if dots:
-        counter(papers, dots)
-
-def receivePapers(papers):
-    if papers:
-        M.when("global", "dots", lambda d: receiveDots(papers, d))
 
 def counter(papers, dots):
     for paper in papers:
@@ -119,16 +113,36 @@ def counter(papers, dots):
 
             n_dots = 0
 
+            if tl is None or tr is None or br is None or bl is None:
+                logging.error("bad paper data")
+                return
+
             for dot in dots:
                 if is_dot_in_paper(tl, tr, br, bl, dot):
                     n_dots += 1
 
             ill = M.new_illumination(id)
-            ill.fontsize(16)
-            text = "{0} dots".format(n_dots)
+            ill.fontsize(80)
+            text = "{0}".format(n_dots)
             ill.text(text, 20, 20)
             M.wish("DRAW", id, ill.package())
 
+
+M.when_set_filter("CLAIM[global/papers]")
+M.when_set_filter("CLAIM[global/dots]")
+
+papers = []
+dots = []
+
 while True:
-    M.when("global", "papers", receivePapers)
-    time.sleep(1)
+    string = M.when_recv()
+    key = (string.split(']', 1)[0]).split('/', 1)[1]
+    val = string.split(']', 1)[1]
+    json_val = json.loads(val)
+    if key == "papers":
+        papers = json_val
+    elif key == "dots":
+        dots = json_val
+    else:
+        continue
+    counter(papers, dots)
