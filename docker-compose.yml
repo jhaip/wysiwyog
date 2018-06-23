@@ -11,7 +11,7 @@ services:
       - "5566:5566"  # Image RPC
       - "5577:5577"  # Image RPC
       - "5000:5000"  # Flask
-    command: ["python", "app.py"]
+    command: "./run.sh"
   pdf:
     image: samuelcolvin/pydf
     ports:

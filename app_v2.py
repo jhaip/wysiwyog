@@ -11,6 +11,7 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO)
 
 context = zmq.Context()
+rpc_url = "localhost"
 sub_socket = context.socket(zmq.SUB)
 sub_socket.connect("tcp://{0}:5556".format(rpc_url))
 pub_socket = context.socket(zmq.PUB)
@@ -54,18 +55,12 @@ class Master:
         for row in c.execute("SELECT id, filename FROM programs"):
             self.programs[row[0]] = {"path": row[1]}
 
-    def _list_non_boot_papers(self):
-        papers = list(self.programs.keys())
-        return list(filter(lambda x: x not in self.boot_programs, papers))
-
     def clear_wishes(self, opts):
         # TODO: publish clear signal or tombstone
         pass
 
-    def clear_claims(self, source):
-        source = str(source)
-        # TODO: publish clear signal or tombstone
-        return
+    def send_death_signal(self, source):
+        pub_socket.send_string("DEATH[{0}]".format(source))
 
     def _generate_program_id(self):
         max_number = 8400 // 4
@@ -131,7 +126,7 @@ class Master:
                 p.wait(timeout=1)  # This might be blocking?
                 self.programs[id]["pid"] = None
             self.clear_wishes({"source": str(id)})
-            self.clear_claims(str(id))
+            self.send_death_signal(str(id))
         else:
             logging.error("Program with id %s does not exist" % id)
 
@@ -146,7 +141,7 @@ class Master:
                     p.wait(timeout=1)  # This might be blocking?
                     if restart:
                         self.clear_wishes({"source": str(id)})
-                        self.clear_claims(str(id))
+                        self.send_death_signal(str(id))
                 else:
                     return  # let it keep running
             try:
@@ -158,29 +153,53 @@ class Master:
         else:
             logging.error("Program with id %s does not exist" % id)
 
+    def _list_non_boot_papers(self):
+        papers = list(self.programs.keys())
+        return list(filter(lambda x: x not in self.boot_programs, papers))
+
+    def run_active_papers(self, papers):
+        logging.error("-- got papers %s" % len(papers))
+        non_boot_papers = self._list_non_boot_papers()
+        for paper in papers:
+            paper_id = int(paper["id"])
+            if paper["id"] in non_boot_papers:
+                logging.error("running %s" % paper_id)
+                self.run_program(paper_id)
+                non_boot_papers.remove(paper["id"])
+        # Stop papers that aren't present
+        for id in non_boot_papers:
+            logging.error("STOP %s" % id)
+            self.stop_program(id)
+
+
 
 master = Master()
 master.run_program(0)
 
 sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[PROGRAM/")
+sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/papers]")
 
 while True:
     string = sub_socket.recv_string()
+    event_type = val = string.split('[', 1)[0]  # WISH, CLAIM
     val = string.split(']', 1)[1]
     json_val = json.loads(val)
-    logging.info(json_val)
-    action = json_val["action"]
-    if action == "stop":
-        id = json_val["id"]
-        master.stop_program(id)
-    elif action == "run":
-        id = json_val["id"]
-        restart = json_val["restart"]
-        master.run_program(id, restart)
-    elif action == "create":
-        name = json_val["name"]
-        master.create_program(name)
-    elif action == "update":
-        id = json_val["id"]
-        new_code = json_val["new_code"]
-        master.create_program(id, new_code)
+    logging.info(string)
+    if event_type == "CLAIM":
+        master.run_active_papers(json_val)
+    elif event_type == "WISH":
+        action = json_val["action"]
+        if action == "stop":
+            id = json_val["id"]
+            master.stop_program(id)
+        elif action == "run":
+            id = json_val["id"]
+            restart = json_val["restart"]
+            master.run_program(id, restart)
+        elif action == "create":
+            name = json_val["name"]
+            master.create_program(name)
+        elif action == "update":
+            id = json_val["id"]
+            new_code = json_val["new_code"]
+            master.create_program(id, new_code)
