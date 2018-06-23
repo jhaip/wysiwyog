@@ -24,6 +24,7 @@ class SubEventThread(Thread):
         # self.sub_socket.set_hwm(5)
         self.sub_socket.connect("tcp://localhost:5556")
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[DRAW/")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "DEATH[")
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/dots]")
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/papers]")
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/corners]")
@@ -34,16 +35,17 @@ class SubEventThread(Thread):
         while True:
             string = self.sub_socket.recv_string()
             event_type = val = string.split('[', 1)[0]  # WISH, CLAIM
-            if event_type == "WISH":
-                val = string.split(']', 1)[1]
-                json_val = json.loads(val)
-                wx.CallAfter(pub.sendMessage, "on_wish", val=json_val)
-            elif event_type == "CLAIM":
+            if event_type in ["WISH", "CLAIM"]:
                 key = (string.split(']', 1)[0]).split('/', 1)[1]
                 val = string.split(']', 1)[1]
                 json_val = json.loads(val)
-                if True or key in ["papers"]:
+                if event_type == "WISH":
+                    wx.CallAfter(pub.sendMessage, "on_wish", source=key, val=json_val)
+                elif event_type == "CLAIM":
                     wx.CallAfter(pub.sendMessage, "on_claim", key=key, val=json_val)
+            elif event_type == "DEATH":
+                program_id = (string.split(']', 1)[0]).split('[', 1)[1]
+                wx.CallAfter(pub.sendMessage, "on_program_death", program_id=program_id)
             # time.sleep(1)
 
 
@@ -66,17 +68,18 @@ class Example(wx.Frame):
         self.papers = []
         self.projector_calibration = []
         self.projection_matrix = None
-        self.draw_wishes = []
+        self.draw_wishes = {}
 
         self.timer = wx.Timer(self, Example.ID_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnTimer, id=Example.ID_TIMER)
 
-        fps = 20
+        fps = 5
         self.firstTime = False
         self.timer.Start(1000./fps)
 
         pub.subscribe(self.onWish, "on_wish")
         pub.subscribe(self.onClaim, "on_claim")
+        pub.subscribe(self.onProgramDeath, "on_program_death")
 
     def OnPaint(self, e):
         # dc = wx.PaintDC(self)
@@ -111,17 +114,16 @@ class Example(wx.Frame):
 
         paper_draw_wishes = {}
         if self.draw_wishes:
-            for wish in self.draw_wishes:
-                wish_options = wish.get("options")
-                if type(wish_options) is dict:
-                    for target in wish_options:
-                        target_commands = wish_options[target]
-                        if target not in paper_draw_wishes:
-                            paper_draw_wishes[target] = []
-                        paper_draw_wishes[target].extend(target_commands)
-                else:
-                    print("TYPE ISN't DICT")
-                    print(wish)
+            for wish_source in self.draw_wishes:
+                for target in self.draw_wishes[wish_source]:
+                    target_commands = self.draw_wishes[wish_source][target]
+                    if target not in paper_draw_wishes:
+                        paper_draw_wishes[target] = []
+                    paper_draw_wishes[target].extend(target_commands)
+        logging.error(paper_draw_wishes)
+
+        for i, target in enumerate(paper_draw_wishes):
+            dc.DrawText(target + ": " + json.dumps(paper_draw_wishes[target]), 10, 10+16*i)
 
         self.draw_global_wishes(gc, paper_draw_wishes.get("global"))
 
@@ -139,10 +141,10 @@ class Example(wx.Frame):
                             tri2.append(corner)
 
                     # Highlight full shape:
-                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
-                    dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
+                    # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
+                    # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
 
-                    # self.draw_paper(gc, paper, paper_draw_wishes.get(paper["id"]))
+                    self.draw_paper(gc, paper, paper_draw_wishes.get(paper["id"]))
                 if len(paper["corners"]) == 3:
                     tri1 = paper["corners"]
                     pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
@@ -315,7 +317,7 @@ class Example(wx.Frame):
             # return pts
             dst = cv2.perspectiveTransform(np.array([np.float32(pts)]), self.projection_matrix)
             return list(map(lambda x: [int(x[0]), int(x[1])], dst[0]))
-        logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
+        # logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
         return pts
 
     def project2(self, _pt):
@@ -332,24 +334,22 @@ class Example(wx.Frame):
             pt["x"] = int(dst[0][0][0])
             pt["y"] = int(dst[0][0][1])
             return pt
-        logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
+        # logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
         return pt
 
-    def onWish(self, val):
-        self.draw_wishes = []
+    def onWish(self, source, val):
         logging.error("onWish")
-        logging.error(wishes)
-        if wishes:
-            for wish in wishes:
-                draw_options = {}
-                try:
-                    draw_options = json.loads(wish.get("action"))
-                except:
-                    pass
-                self.draw_wishes.append({
-                    "source": wish["source"],
-                    "options": draw_options
-                })
+        logging.error(source)
+        logging.error(val)
+        if val == "DEATH":
+            if source in self.draw_wishes:
+                del self.draw_wishes[source]
+        else:
+            for target in val:
+                draw_commands = val[target]
+                if source not in self.draw_wishes:
+                    self.draw_wishes[source] = {}
+                self.draw_wishes[source][target] = draw_commands
 
     def onClaim(self, key, val):
         logging.error("onClaim")
@@ -375,6 +375,12 @@ class Example(wx.Frame):
                 # logging.info("IDENTITY?")
                 # logging.info(dst)
                 # logging.info(list(map(lambda x: [int(x[0]), int(x[1])], dst[0])))
+
+    def onProgramDeath(self, program_id):
+        logging.error("on_program_death")
+        logging.error(program_id)
+        if program_id in self.draw_wishes:
+            del self.draw_wishes[program_id]
 
     def OnTimer(self, event):
         if event.GetId() == Example.ID_TIMER:
