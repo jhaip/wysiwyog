@@ -13,7 +13,7 @@ CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
 
 class ShowCapture(wx.Panel):
-    def __init__(self, parent, capture, fps=5):
+    def __init__(self, parent, capture, fps=2):
         wx.Panel.__init__(self, parent)
 
         self.capture = capture
