@@ -32,25 +32,43 @@ class SubEventThread(Thread):
         self.start()    # start the thread
 
     def run(self):
+        state = {}
         while True:
-            string = self.sub_socket.recv_string()
-            event_type = val = string.split('[', 1)[0]  # WISH, CLAIM
-            if event_type in ["WISH", "CLAIM"]:
-                key = (string.split(']', 1)[0]).split('/', 1)[1]
-                val = string.split(']', 1)[1]
-                json_val = json.loads(val)
-                if event_type == "WISH":
-                    wx.CallAfter(pub.sendMessage, "on_wish", source=key, val=json_val)
-                elif event_type == "CLAIM":
-                    wx.CallAfter(pub.sendMessage, "on_claim", key=key, val=json_val)
-            elif event_type == "DEATH":
-                program_id = (string.split(']', 1)[0]).split('[', 1)[1]
-                wx.CallAfter(pub.sendMessage, "on_program_death", program_id=program_id)
-            # time.sleep(1)
+            wishes = []
+            deaths = []
+            new_state = False
+            while True:
+                try:
+                    string = self.sub_socket.recv_string(flags=zmq.NOBLOCK)
+                    event_type = val = string.split('[', 1)[0]  # WISH, CLAIM
+                    if event_type in ["WISH", "CLAIM"]:
+                        key = (string.split(']', 1)[0]).split('/', 1)[1]
+                        val = string.split(']', 1)[1]
+                        json_val = json.loads(val)
+                        if event_type == "WISH":
+                            wishes.append((key, json_val))
+                        elif event_type == "CLAIM":
+                            new_state = True
+                            state[key] = json_val
+                    elif event_type == "DEATH":
+                        program_id = (string.split(']', 1)[0]).split('[', 1)[1]
+                        deaths.append(program_id)
+                except zmq.Again:
+                    logging.error("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ AGAIN")
+                    break
+
+            # if len(wishes) > 0:
+            #     wx.CallAfter(pub.sendMessage, "on_wish", wishes=wishes)
+            # if len(deaths) > 0:
+            #     wx.CallAfter(pub.sendMessage, "on_program_death", deaths=deaths)
+            if new_state:
+                wx.CallAfter(pub.sendMessage, "on_claim", state=state)
+            time.sleep(0.5)
 
 
 class Example(wx.Frame):
     ID_TIMER = 1
+    GRAPHICS_TIMER = 2
     def __init__(self, parent, title):
         super(Example, self).__init__(parent, title=title,
             size=(CAM_WIDTH, CAM_HEIGHT))
@@ -69,19 +87,119 @@ class Example(wx.Frame):
         self.projector_calibration = []
         self.projection_matrix = None
         self.draw_wishes = {}
+        self.latestCount = None
+
+        # pub.subscribe(self.onWish, "on_wish")
+        # pub.subscribe(self.onClaim, "on_claim")
+        # pub.subscribe(self.onProgramDeath, "on_program_death")
+
+        self.sub_socket = context.socket(zmq.SUB)
+        # self.sub_socket.set_hwm(5)
+        self.sub_socket.connect("tcp://localhost:5556")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[DRAW/")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "DEATH[")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/dots]")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/papers]")
+        # self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/corners]")
+        # self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/projector_calibration]")
+        # self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/dtpcount]")
+        time.sleep(1)
+        # self.mainLoop()
 
         self.timer = wx.Timer(self, Example.ID_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnTimer, id=Example.ID_TIMER)
 
-        fps = 5
-        self.firstTime = False
+        self.graphics_timer = wx.Timer(self, Example.GRAPHICS_TIMER)
+        self.Bind(wx.EVT_TIMER, self.OnGraphicsTimer, id=Example.GRAPHICS_TIMER)
+
+        fps = 100
         self.timer.Start(1000./fps)
 
-        pub.subscribe(self.onWish, "on_wish")
-        pub.subscribe(self.onClaim, "on_claim")
-        pub.subscribe(self.onProgramDeath, "on_program_death")
+        graphics_fps = 10
+        self.graphics_timer.Start(1000./graphics_fps)
+
+        self.lastPaint = time.time()
+        self.bigStart = time.time()
+
+    def OnGraphicsTimer(self, event):
+        self.Refresh()
+
+    def OnTimer(self, event):
+        start = time.time()
+        self.bigStart = time.time()
+        # logging.error("loop")
+        wishes = []
+        deaths = []
+        old_calibration = self.projector_calibration
+        received_any_value = False
+        while True:
+            try:
+                string = self.sub_socket.recv_string(flags=zmq.NOBLOCK)
+                received_any_value = True
+                event_type = val = string.split('[', 1)[0]  # WISH, CLAIM
+                if event_type in ["WISH", "CLAIM"]:
+                    key = (string.split(']', 1)[0]).split('/', 1)[1]
+                    val = string.split(']', 1)[1]
+                    if key == "dtpcount":
+                        logging.error("DTPCOUNT:")
+                        logging.error(string)
+                    json_val = json.loads(val)
+                    if event_type == "WISH":
+                        wishes.append((key, json_val))
+                    elif event_type == "CLAIM":
+                        if key == "dots":
+                            self.dots = json_val
+                        elif key == "corners":
+                            self.corners = json_val
+                        elif key == "papers":
+                            self.papers = json_val
+                        elif key == "projector_calibration":
+                            self.projector_calibration = json_val
+                        elif key == "dtpcount":
+                            self.latestCount = json_val
+                elif event_type == "DEATH":
+                    program_id = (string.split(']', 1)[0]).split('[', 1)[1]
+                    deaths.append(program_id)
+            except zmq.Again:
+                logging.error("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ AGAIN" + str(received_any_value))
+                break
+
+        self.onWish(wishes)
+        self.onProgramDeath(deaths)
+
+        if old_calibration != self.projector_calibration:
+            if self.projector_calibration and len(self.projector_calibration) is 4:
+                logging.error("RECAL PROJECTION MATRIX")
+                pts1 = np.float32(self.projector_calibration)
+                pts2 = np.float32([[0,0],[CAM_WIDTH,0],[CAM_WIDTH,CAM_HEIGHT],[0,CAM_HEIGHT]])
+                self.projection_matrix = cv2.getPerspectiveTransform(pts1, pts2)
+                # logging.info("CONVERT PERSPECTIVE")
+                # logging.info(self.projection_matrix)
+                # logging.info(np.float32(self.projector_calibration))
+                #
+                # dst = cv2.perspectiveTransform(np.array([np.float32(self.projector_calibration)]), self.projection_matrix)
+                # logging.info("IDENTITY?")
+                # logging.info(dst)
+                # logging.info(list(map(lambda x: [int(x[0]), int(x[1])], dst[0])))
+
+
+
+        # if end - start <= 16:
+        #     logging.error("too fast, sleeping")
+        #     time.sleep(0.016)
+
+        # self.i += 1
+        # if self.i % 3 == 0:
+        #     self.Refresh()
+
+        end = time.time()
+        print(1000*(end - start), "ms", 1.0/(end - start), "fps")
+
 
     def OnPaint(self, e):
+        now = time.time()
+        print(1.0/(now - self.lastPaint), "fps for paint")
+        self.lastPaint = time.time()
         # dc = wx.PaintDC(self)
         # logging.info(self.i)
         # dc.DrawLine(50, 60 + self.i, 190, 60)
@@ -102,6 +220,9 @@ class Example(wx.Frame):
         font =  dc.GetFont()
         font.SetWeight(wx.FONTWEIGHT_BOLD)
         dc.SetFont(font)
+
+        if self.latestCount:
+            dc.DrawText(str(self.latestCount), 10, 10)
 
         # if self.bmp:
         #     dc.DrawBitmap(self.bmp, 0, 0)
@@ -172,6 +293,9 @@ class Example(wx.Frame):
         #             elif c == '3':
         #                 dc.SetBrush(wx.Brush(wx.Colour(200, 200, 200)))
         #             dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]+10-s, s*2, s*2)
+
+        end = time.time()
+        print(1000*(end - now), "ms", 1.0/(end - now), "fps to do paint stuff")
 
     def dist(self, p1, p2):
         return math.sqrt( (p1["x"] - p2["x"])**2 + (p1["y"] - p2["y"])**2 )
@@ -337,80 +461,49 @@ class Example(wx.Frame):
         # logging.error("MISSING PROJECTION MATRIX FOR PAPERS!")
         return pt
 
-    def onWish(self, source, val):
-        logging.error("onWish")
-        logging.error(source)
-        logging.error(val)
-        if val == "DEATH":
-            if source in self.draw_wishes:
-                del self.draw_wishes[source]
-        else:
-            for target in val:
-                draw_commands = val[target]
-                if source not in self.draw_wishes:
-                    self.draw_wishes[source] = {}
-                self.draw_wishes[source][target] = draw_commands
+    def onWish(self, wishes):
+        for wish in wishes:
+            source = wish[0]
+            val = wish[1]
+            logging.error("onWish")
+            logging.error(source)
+            logging.error(val)
+            if val == "DEATH":
+                if source in self.draw_wishes:
+                    del self.draw_wishes[source]
+            else:
+                for target in val:
+                    draw_commands = val[target]
+                    if source not in self.draw_wishes:
+                        self.draw_wishes[source] = {}
+                    self.draw_wishes[source][target] = draw_commands
 
-    def onClaim(self, key, val):
+    def onClaim(self, state):
         logging.error("onClaim")
-        logging.error(key)
-        logging.error(val)
-        if key == "dots":
-            self.dots = val
-        elif key == "papers":
-            self.papers = val
-        elif key == "corners":
-            self.corners = val
-        elif key == "projector_calibration":
-            self.projector_calibration = val
-            if self.projector_calibration and len(self.projector_calibration) is 4:
-                pts1 = np.float32(self.projector_calibration)
-                pts2 = np.float32([[0,0],[CAM_WIDTH,0],[CAM_WIDTH,CAM_HEIGHT],[0,CAM_HEIGHT]])
-                self.projection_matrix = cv2.getPerspectiveTransform(pts1, pts2)
-                # logging.info("CONVERT PERSPECTIVE")
-                # logging.info(self.projection_matrix)
-                # logging.info(np.float32(self.projector_calibration))
-                #
-                # dst = cv2.perspectiveTransform(np.array([np.float32(self.projector_calibration)]), self.projection_matrix)
-                # logging.info("IDENTITY?")
-                # logging.info(dst)
-                # logging.info(list(map(lambda x: [int(x[0]), int(x[1])], dst[0])))
+        self.dots = state.get("dots", [])
+        self.papers = state.get("papers", [])
+        self.corners = state.get("corners", [])
+        self.projector_calibration = state.get("projector_calibration", [])
+        if self.projector_calibration and len(self.projector_calibration) is 4:
+            pts1 = np.float32(self.projector_calibration)
+            pts2 = np.float32([[0,0],[CAM_WIDTH,0],[CAM_WIDTH,CAM_HEIGHT],[0,CAM_HEIGHT]])
+            self.projection_matrix = cv2.getPerspectiveTransform(pts1, pts2)
+            # logging.info("CONVERT PERSPECTIVE")
+            # logging.info(self.projection_matrix)
+            # logging.info(np.float32(self.projector_calibration))
+            #
+            # dst = cv2.perspectiveTransform(np.array([np.float32(self.projector_calibration)]), self.projection_matrix)
+            # logging.info("IDENTITY?")
+            # logging.info(dst)
+            # logging.info(list(map(lambda x: [int(x[0]), int(x[1])], dst[0])))
 
-    def onProgramDeath(self, program_id):
-        logging.error("on_program_death")
-        logging.error(program_id)
-        if program_id in self.draw_wishes:
-            del self.draw_wishes[program_id]
+    def onProgramDeath(self, deaths):
+        for program_id in deaths:
+            logging.error("on_program_death")
+            logging.error(program_id)
+            if program_id in self.draw_wishes:
+                del self.draw_wishes[program_id]
 
-    def OnTimer(self, event):
-        if event.GetId() == Example.ID_TIMER:
-
-            logging.error("start")
-
-            start = time.time()
-
-            if not self.firstTime:
-                logging.error("starting THREAD")
-                self.firstTime = True
-                SubEventThread()
-
-            # logging.info("PROJECTION: " + str(result))
-            # self.M.clear_wishes({"type": "DRAW"})
-            # self.i += 2
-            # wxImg = wx.Image()
-            # image_string = self.M.get_image()
-            # # wxImg.SetData(image_string)
-            # wxImg = wx.ImageFromBuffer(CAM_WIDTH, CAM_HEIGHT, image_string)
-            # logging.info("got frame")
-
-            # self.bmp = wxImg.ConvertToBitmap()
-
-            self.Refresh()
-
-            end = time.time()
-            print(end - start, 1.0/(end - start), "fps")
-        else:
-            event.Skip()
 
 if __name__ == '__main__':
     app = wx.App()
