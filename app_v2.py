@@ -180,26 +180,39 @@ sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[PROGRAM/")
 sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/papers]")
 
 while True:
-    string = sub_socket.recv_string()
-    event_type = val = string.split('[', 1)[0]  # WISH, CLAIM
-    val = string.split(']', 1)[1]
-    json_val = json.loads(val)
-    logging.info(string)
-    if event_type == "CLAIM":
-        master.run_active_papers(json_val)
-    elif event_type == "WISH":
-        action = json_val["action"]
+    latest_papers = None
+    wishes = []
+    while True:
+        try:
+            string = sub_socket.recv_string(flags=zmq.NOBLOCK)
+            event_type = val = string.split('[', 1)[0]  # WISH, CLAIM
+            val = string.split(']', 1)[1]
+            json_val = json.loads(val)
+            # logging.info(string)
+            if event_type == "CLAIM":
+                latest_papers = json_val
+            elif event_type == "WISH":
+                wishes.append(json_val)
+        except zmq.Again:
+            break
+
+    if latest_papers is not None:
+        master.run_active_papers(latest_papers)
+    for wish in wishes:
+        action = wish["action"]
         if action == "stop":
-            id = json_val["id"]
+            id = wish["id"]
             master.stop_program(id)
         elif action == "run":
-            id = json_val["id"]
-            restart = json_val["restart"]
+            id = wish["id"]
+            restart = wish["restart"]
             master.run_program(id, restart)
         elif action == "create":
-            name = json_val["name"]
+            name = wish["name"]
             master.create_program(name)
         elif action == "update":
-            id = json_val["id"]
-            new_code = json_val["new_code"]
+            id = wish["id"]
+            new_code = wish["new_code"]
             master.create_program(id, new_code)
+
+    time.sleep(0.5)
