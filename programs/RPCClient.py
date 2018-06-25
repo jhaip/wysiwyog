@@ -56,8 +56,8 @@ class RPCClient:
     def claim(self, source, key, value):
         json_value = json.dumps(value)
         s = "CLAIM[{0}/{1}]{2}".format(source, key, json_value)
-        logging.error(s)
-        self.pub_socket.send_string(s)
+        # logging.error(s)
+        self.pub_socket.send_string(s, zmq.NOBLOCK)
 
     def fastclaim(self, source, key, value):
         # TODO: remove
