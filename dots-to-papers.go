@@ -70,11 +70,12 @@ func main() {
   filter := "CLAIM[global/dots]"
   subscriber.SetSubscribe(filter)
   subscriber.Connect("tcp://localhost:5556")
+  count := 0
 
   for {
     start := time.Now()
 
-  	points := getDots(subscriber)  // getPoints()
+  	points := getDots(subscriber, start)  // getPoints()
 
     timeGotDots := time.Since(start)
   	// printDots(points)
@@ -88,13 +89,16 @@ func main() {
   	step3 := doStep3(step1, step2)
   	// printCorners(step3)
   	step4 := doStep4CornersWithIds(step1, step3)
-    claimCorners(publisher, step4)
+    // claimCorners(publisher, step4)
   	// printCorners(step4)
     papers := getPapersFromCorners(step4)
     fmt.Println(papers)
 
     timeProcessing := time.Since(start)
     claimPapers(publisher, papers)
+
+    count += 1
+    // claimCounter(publisher, count)
 
     elapsed := time.Since(start)
     fmt.Printf("get dots  : %s \n", timeGotDots)
@@ -480,9 +484,24 @@ func trimLeftChars(s string, n int) string {
     return s[:0]
 }
 
-func getDots(subscriber *zmq.Socket) []Dot {
-  reply, _ := subscriber.Recv(0)
-	fmt.Println("Received ", reply)
+func getDots(subscriber *zmq.Socket, start time.Time) []Dot {
+  var reply string
+  nLoops := 0
+  for reply == "" {
+    for {
+      nLoops += 1
+      tmp_reply, err := subscriber.Recv(zmq.DONTWAIT)
+      if err != nil {
+        break
+      } else {
+        reply = tmp_reply
+      }
+    }
+    time.Sleep(1 * time.Millisecond)
+  }
+  timeGotDotsPre := time.Since(start)
+  fmt.Printf("get dots pre  : %s , %s\n", timeGotDotsPre, nLoops)
+	// fmt.Println("Received ", reply)
   // "CLAIM[global/dots]" = 18 characters to trim off from beginning of JSON
   val := trimLeftChars(reply, 18)
   res := make([]Dot, 0)
@@ -515,6 +534,12 @@ func claimCorners(publisher *zmq.Socket, corners []Corner) {
   cornersStr := string(cornersAlmostStr)
   fmt.Println(cornersStr)
   msg := fmt.Sprintf("CLAIM[global/corners]%s", cornersStr)
+  fmt.Println("Sending ", msg)
+  publisher.Send(msg, 0)
+}
+
+func claimCounter(publisher *zmq.Socket, count int) {
+  msg := fmt.Sprintf("CLAIM[global/dtpcount]%v", count)
   fmt.Println("Sending ", msg)
   publisher.Send(msg, 0)
 }
