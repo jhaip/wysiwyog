@@ -2,9 +2,12 @@ import logging
 import sys
 import RPCClient
 import json
+import time
 
 logging.basicConfig(level=logging.INFO)
 M = RPCClient.RPCClient()
+
+time.sleep(1)
 
 id = sys.argv[1]
 
