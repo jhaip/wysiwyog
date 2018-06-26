@@ -16,12 +16,12 @@ last_key_id = None
 KEYBOARD_PROGRAM_ID = 500
 
 while True:
-    keys = M.when_no_callback(KEYBOARD_PROGRAM_ID, "keys", when_keys)
+    keys = M.when_no_callback(KEYBOARD_PROGRAM_ID, "keys")
     if keys:
         if last_key_id is None:
             # Intial case. Catch up to lastest id but ignore cached text
             last_key_id = keys[-1]["id"]
-            return
+            continue
         for d in keys:
             if d["id"] > last_key_id:
                 last_key_id = d["id"]
