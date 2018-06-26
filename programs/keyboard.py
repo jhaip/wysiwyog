@@ -3,7 +3,7 @@ import RPCClient
 import json
 import sys
 
-M = RPCClient.RPCClient(use_http=True, rpc_url="10.0.0.223")
+M = RPCClient.RPCClient(rpc_url="10.0.0.223")
 
 id = sys.argv[1]
 
