@@ -3,7 +3,7 @@ import RPCClient
 import json
 import sys
 
-M = RPCClient.RPCClient(use_http=True, rpc_url="http://10.0.0.223:5000")
+M = RPCClient.RPCClient(use_http=True, rpc_url="10.0.0.223")
 
 id = sys.argv[1]
 
@@ -26,7 +26,7 @@ def map_special_key(key):
     if key in m:
         return m[key]
     return None
-    
+
 
 def add_key(key, special_key):
     global last_key_id, cache, max_cache_size

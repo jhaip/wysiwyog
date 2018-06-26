@@ -86,6 +86,7 @@ class RPCClient:
         sub_string = "CLAIM[{0}/{1}]".format(source, key)
         logging.error("looking for: " + sub_string)
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, sub_string)
+        # TODO: don't do this ^ every time
         string = self.sub_socket.recv_string()
         logging.error("got string! : " + string)
         val = string[len(sub_string):]
