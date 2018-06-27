@@ -4,6 +4,7 @@ import RPCClient
 import subprocess
 import requests
 import time
+import json
 from string import Template
 
 logging.basicConfig(level=logging.INFO)
