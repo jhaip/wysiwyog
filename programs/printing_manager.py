@@ -5,6 +5,7 @@ import subprocess
 import requests
 import time
 import json
+import uuid
 from string import Template
 
 logging.basicConfig(level=logging.INFO)
