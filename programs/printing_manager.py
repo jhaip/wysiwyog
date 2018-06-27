@@ -251,6 +251,10 @@ while True:
         M.when_clear_filter(msg_prefix)
         logging.error("about to print")
         logging.error(val)
-        print_via_lpr(int(val["program_id"]), val["code"], val["name"])
-        logging.error("done printing")
+        if "error" in val:
+            logging.error("Error in response to get code")
+            logging.error(val["error"])
+        else:
+            print_via_lpr(int(val["program_id"]), val["code"], val["name"])
+            logging.error("done printing")
     time.sleep(1)

@@ -241,7 +241,14 @@ while True:
         if wish.get("name") == "source_code":
             logging.error("returning source code")
             data = master.get_program_description(wish["options"]["id"])
-            data_str = json.dumps(data)
+            data_str = None
+            if data is None:
+                data_str = json.dumps({
+                    "program_id": wish["options"]["id"],
+                    "error": "bad program id"
+                })
+            else:
+                data_str = json.dumps(data)
             s = "CLAIM[RECLAIM/{0}]{1}".format(wish["request_id"], data_str)
             logging.error(s)
             pub_socket.send_string(s, zmq.NOBLOCK)
