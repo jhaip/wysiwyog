@@ -70,6 +70,9 @@ class RPCClient:
     def when_set_filter(self, filter_str):
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, filter_str)
 
+    def when_clear_filter(self, filter_str):
+        self.sub_socket.setsockopt_string(zmq.UNSUBSCRIBE, filter_str)
+
     def when_recv(self):
         return self.sub_socket.recv_string()
 
