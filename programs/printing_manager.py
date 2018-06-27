@@ -19,42 +19,6 @@ M.when_set_filter("WISH[PRINT/")
 
 print_queue_state = {}
 
-
-while True:
-    string = M.when_recv()
-    event_type = string.split('[', 1)[0]  # WISH, CLAIM
-    if event_type == 'WISH':
-        logging.error("GOT A WISH")
-        wish = json.loads(string.split(']', 1)[1])
-        program_id = wish.get("program_id")
-        if program_id is not None:
-            req_id = str(uuid.uuid4())
-            req = {
-                "name": "source_code",
-                "options": {"id": program_id},
-                "request_id": req_id
-            }
-            print_queue_state[program_id] = req_id
-            M.when_set_filter("CLAIM[RECLAIM/{0}]".format(req_id))
-            M.wish("RECLAIM", id, json.dumps(req))
-            logging.error("requested code about a program")
-            logging.error(req)
-    elif event_type == 'CLAIM':
-        # received code
-        logging.error("RECEIVED CODE ABOUT A PROGRAM")
-        req_id = (string.split(']', 1)[0]).split('/', 1)[1]
-        msg_prefix = "CLAIM[RECLAIM/{0}]".format(req_id)
-        val = json.loads(string[len(msg_prefix):])
-        if val["program_id"] in print_queue_state:
-            del print_queue_state[val["program_id"]]
-        M.when_clear_filter(msg_prefix)
-        logging.error("about to print")
-        logging.error(val)
-        print_via_lpr(int(val["program_id"]), val["code"], val["name"])
-        logging.error("done printing")
-    time.sleep(1)
-
-
 def print_via_lpr(program_id, code, name):
       logging.error("print via lpr")
       template = get_template()
@@ -255,3 +219,38 @@ def calc_corner_colors(program_id):
         code8400[2*(8400//4) + program_id],
         code8400[3*(8400//4) + program_id]
     ]
+
+
+while True:
+    string = M.when_recv()
+    event_type = string.split('[', 1)[0]  # WISH, CLAIM
+    if event_type == 'WISH':
+        logging.error("GOT A WISH")
+        wish = json.loads(string.split(']', 1)[1])
+        program_id = wish.get("program_id")
+        if program_id is not None:
+            req_id = str(uuid.uuid4())
+            req = {
+                "name": "source_code",
+                "options": {"id": program_id},
+                "request_id": req_id
+            }
+            print_queue_state[program_id] = req_id
+            M.when_set_filter("CLAIM[RECLAIM/{0}]".format(req_id))
+            M.wish("RECLAIM", id, json.dumps(req))
+            logging.error("requested code about a program")
+            logging.error(req)
+    elif event_type == 'CLAIM':
+        # received code
+        logging.error("RECEIVED CODE ABOUT A PROGRAM")
+        req_id = (string.split(']', 1)[0]).split('/', 1)[1]
+        msg_prefix = "CLAIM[RECLAIM/{0}]".format(req_id)
+        val = json.loads(string[len(msg_prefix):])
+        if val["program_id"] in print_queue_state:
+            del print_queue_state[val["program_id"]]
+        M.when_clear_filter(msg_prefix)
+        logging.error("about to print")
+        logging.error(val)
+        print_via_lpr(int(val["program_id"]), val["code"], val["name"])
+        logging.error("done printing")
+    time.sleep(1)
