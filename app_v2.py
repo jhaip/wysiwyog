@@ -153,6 +153,23 @@ class Master:
         else:
             logging.error("Program with id %s does not exist" % id)
 
+    def get_program_description(self, program_id):
+        c = conn.cursor()
+        path = None
+        name = None
+        for row in c.execute("SELECT filename, name FROM programs WHERE id = ?", (str(program_id),)):
+            logging.error(row)
+            path = row[0]
+            name = row[1]
+        if path is None:
+            logging.error("Program not found: ", program_id)
+            return None
+        p = Path(path)
+        text = p.read_text()
+        logging.error("_GET SOURCE CODE:")
+        logging.error(text)
+        return {"code": text, "name": name, "program_id": program_id}
+
     def _list_non_boot_papers(self):
         papers = list(self.programs.keys())
         return list(filter(lambda x: x not in self.boot_programs, papers))
@@ -177,11 +194,13 @@ master = Master()
 master.run_program(0)
 
 sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[PROGRAM/")
+sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[RECLAIM/")
 sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/papers]")
 
 while True:
     latest_papers = None
     wishes = []
+    reclaim_wishes = []
     while True:
         try:
             string = sub_socket.recv_string(flags=zmq.NOBLOCK)
@@ -192,7 +211,11 @@ while True:
             if event_type == "CLAIM":
                 latest_papers = json_val
             elif event_type == "WISH":
-                wishes.append(json_val)
+                wish_type = (string.split('/', 1)[0]).split('[', 1)[1]
+                if wish_type == 'PROGRAM':
+                    wishes.append(json_val)
+                elif wish_type == 'RECLAIM':
+                    reclaim_wishes.append(json_val)
         except zmq.Again:
             break
 
@@ -214,5 +237,13 @@ while True:
             id = wish["id"]
             new_code = wish["new_code"]
             master.create_program(id, new_code)
+    for wish in reclaim_wishes:
+        if wish.get("name") == "source_code":
+            logging.error("returning source code")
+            data = master.get_program_description(wish["options"]["id"])
+            data_str = json.dumps(data)
+            s = "CLAIM[RECLAIM/{0}]{1}".format(wish["request_id"], data_str)
+            logging.error(s)
+            pub_socket.send_string(s, zmq.NOBLOCK)
 
     time.sleep(0.5)
