@@ -24,7 +24,7 @@ while True:
     event_type = string.split('[', 1)[0]  # WISH, CLAIM
     if event_type == 'WISH':
         logging.error("GOT A WISH")
-        wish = json.loads(string[len("WISH[PRINT/"):])
+        wish = json.loads(string.split(']', 1)[1])
         program_id = wish.get("program_id")
         if program_id is not None:
             req_id = str(uuid.uuid4())
