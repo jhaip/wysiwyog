@@ -236,7 +236,7 @@ while True:
         elif action == "update":
             id = wish["id"]
             new_code = wish["new_code"]
-            master.create_program(id, new_code)
+            master.update_program(id, new_code)
     for wish in reclaim_wishes:
         if wish.get("name") == "source_code":
             logging.error("returning source code")
