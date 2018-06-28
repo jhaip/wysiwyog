@@ -112,7 +112,7 @@ class Example(wx.Frame):
         self.graphics_timer = wx.Timer(self, Example.GRAPHICS_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnGraphicsTimer, id=Example.GRAPHICS_TIMER)
 
-        fps = 100
+        fps = 10
         self.timer.Start(1000./fps)
 
         graphics_fps = 10
@@ -306,7 +306,7 @@ class Example(wx.Frame):
         self.draw_commands(gc, commands, CAM_WIDTH)
 
     def draw_commands(self, gc, draw_commands, width):
-        paper_font = wx.Font(int(width/10), wx.DEFAULT, wx.NORMAL, wx.BOLD)
+        paper_font = wx.Font(int(width/10), wx.FONTFAMILY_TELETYPE, wx.NORMAL, wx.BOLD)
         paper_font_color = wx.Colour(255,255,255)
 
         # img = wx.Image("./test_image.png", wx.BITMAP_TYPE_ANY)
@@ -380,7 +380,7 @@ class Example(wx.Frame):
                         gc.SetPen(last_pen)
                 elif command_type == 'fontsize':
                     if opt:
-                        paper_font = wx.Font(opt, wx.DEFAULT, wx.NORMAL, wx.BOLD)
+                        paper_font = wx.Font(opt, wx.FONTFAMILY_TELETYPE, wx.NORMAL, wx.BOLD)
                         gc.SetFont(paper_font, paper_font_color)
                 elif command_type == 'fontcolor':
                     if opt and len(opt) == 3:
