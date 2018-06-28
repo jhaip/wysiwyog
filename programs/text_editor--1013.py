@@ -34,6 +34,26 @@ def get_cursor_position(string, index):
         x = index - index_of_last_newline - 1
     return (x, y)
 
+def get_cursor_index_from_position(string, position):
+    lines = string.split("\n")
+    OUT_OF_BOUNDS = None
+    if position[1] < 0 or position[1] > len(lines) - 1:
+        return OUT_OF_BOUNDS
+    if position[0] < 0 or position[0] > len(lines[position[1]]):
+        return OUT_OF_BOUNDS
+    index = 0
+    for i in range(position[1]):
+        index += len(lines[i]) + 1
+    index += position[0]
+    return index
+
+def get_position_for_end_of_line(string, y):
+    lines = string.split("\n")
+    return len(lines[y])
+
+def get_line_count(string):
+    return len(string.split("\n"))
+
 while True:
     keys = M.when_no_callback(KEYBOARD_PROGRAM_ID, "keys")
     if keys:
@@ -77,10 +97,23 @@ while True:
                     elif d["special_key"] == "up":
                         if cursor_position[1] > 0:
                             cursor_position[1] = cursor_position[1] - 1
+                            new_cursor_index = get_cursor_index_from_position(text_cache, cursor_position)
+                            if new_cursor_index is None:
+                                cursor_position[0] = get_position_for_end_of_line(text_cache, cursor_position[1])
+                            cursor_index = get_cursor_index_from_position(text_cache, cursor_position)
                     elif d["special_key"] == "down":
-                        cursor_position[1] = cursor_position[1] + 1
+                        if cursor_position[1] < get_line_count(text_cache) - 1:
+                            cursor_position[1] = cursor_position[1] + 1
+                            new_cursor_index = get_cursor_index_from_position(text_cache, cursor_position)
+                            if new_cursor_index is None:
+                                cursor_position[0] = get_position_for_end_of_line(text_cache, cursor_position[1])
+                            cursor_index = get_cursor_index_from_position(text_cache, cursor_position)
                     elif d["special_key"] == "right":
                         cursor_position[0] = cursor_position[0] + 1
+                        new_cursor_index = get_cursor_index_from_position(text_cache, cursor_position)
+                        if new_cursor_index is None:
+                            cursor_position[0] = cursor_position[0] - 1
+                        cursor_index = get_cursor_index_from_position(text_cache, cursor_position)
                     elif d["special_key"] == "left":
                         if cursor_position[0] > 0:
                             cursor_position[0] = cursor_position[0] - 1
