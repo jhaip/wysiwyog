@@ -10,6 +10,7 @@ id = sys.argv[1]
 last_key_id = 0
 cache = []
 max_cache_size = 20
+is_ctrl_pressed = False
 
 M.claim(id, "keys", cache)
 
@@ -23,6 +24,8 @@ def map_special_key(key):
     m[keyboard.Key.right] = "right"
     m[keyboard.Key.up] = "up"
     m[keyboard.Key.down] = "down"
+    m["C-p"] = "C-p"
+    m["C-s"] = "C-s"
     if key in m:
         return m[key]
     return None
@@ -38,19 +41,30 @@ def add_key(key, special_key):
         cache.pop(0)
     M.claim(id, "keys", cache)
 
+def add_ctrl_key_combo(key):
+    add_key(None, "C-{0}".format(key))
+
+
 def on_press(key):
     try:
         print('alphanumeric key {0} pressed'.format(
             key.char))
-        add_key(key.char, None)
+        if is_ctrl_pressed:
+            add_ctrl_key_combo(key.char)
+        else:
+            add_key(key.char, None)
     except AttributeError:
         print('special key {0} pressed'.format(
             key))
         add_key(None, key)
+        if key == keyboard.Key.ctrl:
+            is_ctrl_pressed = True
 
 def on_release(key):
     print('{0} released'.format(
         key))
+    if key == keyboard.Key.ctrl:
+        is_ctrl_pressed = False
     if key == keyboard.Key.esc:
         # Stop listener
         return False
