@@ -60,6 +60,8 @@ def get_line_count(string):
 
 def handle_key_update(keys):
     global text_cache, last_key_id, cursor_index, cursor_position, KEYBOARD_PROGRAM_ID
+    did_save = False
+    did_print = False
     if keys:
         if last_key_id is None:
             # Intial case. Catch up to lastest id but ignore cached text
@@ -121,10 +123,22 @@ def handle_key_update(keys):
                     elif d["special_key"] == "left":
                         if cursor_position[0] > 0:
                             cursor_position[0] = cursor_position[0] - 1
-        draw()
+                    elif d["special_key"] == "C-s":
+                        did_save = True
+                        req = {
+                            "action": "update",
+                            "id": program_id,
+                            "new_code": text_cache
+                        }
+                        M.wish("PROGRAM", id, json.dumps(req))
+                    elif d["special_key"] == "C-p":
+                        did_print = True
+                        req = {"program_id": program_id}
+                        M.wish("PRINT", id, json.dumps(req))
+        draw(did_save, did_print)
 
 
-def draw():
+def draw(did_save=False, did_print=False):
     global text_cache, cursor_index, cursor_position
     font_size = 15
     char_width = font_size * 0.6
@@ -138,6 +152,14 @@ def draw():
     cursor_x = origin[0] + char_width * cursor_position[0]
     cursor_y = origin[1] + char_height * cursor_position[1]
     ill.rectangle(cursor_x, cursor_y, char_width, char_height)
+    if did_save:
+        ill.fontcolor(255, 255, 0)
+        ill.fontsize(50)
+        ill.text("SAVED!", origin[0], origin[1])
+    if did_print:
+        ill.fontcolor(255, 255, 0)
+        ill.fontsize(50)
+        ill.text("Print plz!", origin[0], origin[1] + 20)
     M.wish("DRAW", id, ill.package())
 
 
