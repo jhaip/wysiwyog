@@ -46,6 +46,7 @@ def add_ctrl_key_combo(key):
 
 
 def on_press(key):
+    global is_ctrl_pressed
     try:
         print('alphanumeric key {0} pressed'.format(
             key.char))
@@ -61,6 +62,7 @@ def on_press(key):
             is_ctrl_pressed = True
 
 def on_release(key):
+    global is_ctrl_pressed
     print('{0} released'.format(
         key))
     if key == keyboard.Key.ctrl:
