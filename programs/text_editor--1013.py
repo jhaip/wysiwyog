@@ -3,6 +3,7 @@ import sys
 import RPCClient
 import json
 import time
+import uuid
 
 logging.basicConfig(level=logging.INFO)
 M = RPCClient.RPCClient()
@@ -16,6 +17,9 @@ last_key_id = None
 cursor_index = 0
 cursor_position = [0, 0]
 KEYBOARD_PROGRAM_ID = 500
+program_id = 670
+editor_program_state = "NOT_LOADED"
+editor_program_req_id = None
 
 def insert_str(string, str_to_insert, index):
     return string[:index] + str_to_insert + string[index:]
@@ -54,13 +58,13 @@ def get_position_for_end_of_line(string, y):
 def get_line_count(string):
     return len(string.split("\n"))
 
-while True:
-    keys = M.when_no_callback(KEYBOARD_PROGRAM_ID, "keys")
+def handle_key_update(keys):
+    global text_cache, last_key_id, cursor_index, cursor_position, KEYBOARD_PROGRAM_ID
     if keys:
         if last_key_id is None:
             # Intial case. Catch up to lastest id but ignore cached text
             last_key_id = keys[-1]["id"]
-            continue
+            return
         for d in keys:
             if d["id"] > last_key_id:
                 last_key_id = d["id"]
@@ -117,18 +121,65 @@ while True:
                     elif d["special_key"] == "left":
                         if cursor_position[0] > 0:
                             cursor_position[0] = cursor_position[0] - 1
-        font_size = 15
-        char_width = font_size * 0.6
-        char_height = font_size * 1.3
-        origin = (12, 8)
-        ill = M.new_illumination(id)
-        ill.fontsize(font_size)
-        ill.text(text_cache, origin[0], origin[1])
-        ill.nostroke()
-        ill.fill(255, 0, 0, 100)
-        cursor_x = origin[0] + char_width * cursor_position[0]
-        cursor_y = origin[1] + char_height * cursor_position[1]
-        ill.rectangle(cursor_x, cursor_y, char_width, char_height)
-        M.wish("DRAW", id, ill.package())
+        draw()
+
+
+def draw():
+    global text_cache, cursor_index, cursor_position
+    font_size = 15
+    char_width = font_size * 0.6
+    char_height = font_size * 1.3
+    origin = (12, 8)
+    ill = M.new_illumination(id)
+    ill.fontsize(font_size)
+    ill.text(text_cache, origin[0], origin[1])
+    ill.nostroke()
+    ill.fill(255, 0, 0, 100)
+    cursor_x = origin[0] + char_width * cursor_position[0]
+    cursor_y = origin[1] + char_height * cursor_position[1]
+    ill.rectangle(cursor_x, cursor_y, char_width, char_height)
+    M.wish("DRAW", id, ill.package())
+
+
+time.sleep(1)  # Allow subscribers to connect
+M.when_set_filter("CLAIM[{0}/keys]".format(KEYBOARD_PROGRAM_ID))
+
+while True:
+    if editor_program_state == "NOT_LOADED":
+        req_id = str(uuid.uuid4())
+        req = {
+            "name": "source_code",
+            "options": {"id": program_id},
+            "request_id": req_id
+        }
+        editor_program_req_id = req_id
+        M.when_set_filter("CLAIM[RECLAIM/{0}]".format(req_id))
+        editor_program_state = "WAITING_FOR_CODE"
+        M.wish("RECLAIM", id, json.dumps(req))
+        logging.error("WAITING FOR CODE")
+
+    logging.error("WAITING to recv")
+    string = M.when_recv()
+    event_type = string.split('[', 1)[0]  # WISH, CLAIM
+    # Either "CLAIM[RECLAIM/XXXX...]" or "CLAIM[XXXX/keys]"
+    msg_prefix = string.split(']', 1)[0] + "]"
+    val = json.loads(string[len(msg_prefix):])
+    if "RECLAIM" in msg_prefix:
+        editor_program_req_id = None
+        M.when_clear_filter(msg_prefix)
+        logging.error("GOT code!")
+        logging.error(val)
+        if "error" in val:
+            logging.error("Error in response to get code")
+            logging.error(val["error"])
+            editor_program_state = "ERROR"
+        else:
+            text_cache = val["code"]
+            editor_program_state = "LOADED"
+            draw()
+    elif "keys" in msg_prefix:
+        logging.error("handilng key update")
+        keys = val
+        handle_key_update(keys)
 
     time.sleep(0.01)
