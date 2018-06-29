@@ -98,6 +98,7 @@ class Master:
         self.programs[new_id] = {"path": filename}
         logging.error(type(new_id))
         logging.error(self.programs)
+        logging.error("NEW PROGRAM ID: " + str(new_id))
         return new_id
 
     def update_program(self, program_id, new_code):
@@ -197,6 +198,12 @@ sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[PROGRAM/")
 sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[RECLAIM/")
 sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/papers]")
 
+def claim(source, key, value):
+    global pub_socket
+    json_value = json.dumps(value)
+    s = "CLAIM[{0}/{1}]{2}".format(source, key, json_value)
+    pub_socket.send_string(s, zmq.NOBLOCK)
+
 while True:
     latest_papers = None
     wishes = []
@@ -232,7 +239,9 @@ while True:
             master.run_program(id, restart)
         elif action == "create":
             name = wish["name"]
-            master.create_program(name)
+            req_id = wish["request_id"]
+            new_id = master.create_program(name)
+            claim("new_program", req_id, {"id": new_id})
         elif action == "update":
             id = wish["id"]
             new_code = wish["new_code"]
