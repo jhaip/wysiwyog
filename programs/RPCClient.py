@@ -139,9 +139,9 @@ class RPCClient:
 
     def draw_wisker(self, papers, id, WISKER_LENGTH):
         me = PointingAtHelper.get_my_paper(papers, id)
-        ill = M.new_illumination("global")
+        ill = self.new_illumination("global")
         if me is not None:
             wisker = PointingAtHelper.get_paper_wisker(me, "up", WISKER_LENGTH)
             ill.stroke(0, 255, 0)
             ill.line(wisker[0]["x"], wisker[0]["y"], wisker[1]["x"], wisker[1]["y"])
-        M.wish("DRAW", id, ill.package())
+        self.wish("DRAW", id, ill.package())
