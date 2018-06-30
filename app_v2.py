@@ -99,7 +99,7 @@ class Master:
         logging.error(type(new_id))
         logging.error(self.programs)
         logging.error("NEW PROGRAM ID: " + str(new_id))
-        return new_id
+        return str(new_id)
 
     def update_program(self, program_id, new_code):
         logging.error("UPDATE PROGRAM")
@@ -204,6 +204,13 @@ def claim(source, key, value):
     s = "CLAIM[{0}/{1}]{2}".format(source, key, json_value)
     pub_socket.send_string(s, zmq.NOBLOCK)
 
+def make_wish(type, source, action):
+    global pub_socket
+    json_value = json.dumps(action)
+    s = "WISH[{0}/{1}]{2}".format(type, source, json_value)
+    logging.error(s)
+    pub_socket.send_string(s, zmq.NOBLOCK)
+
 while True:
     latest_papers = None
     wishes = []
@@ -239,9 +246,11 @@ while True:
             master.run_program(id, restart)
         elif action == "create":
             name = wish["name"]
-            req_id = wish["request_id"]
             new_id = master.create_program(name)
-            claim("new_program", req_id, {"id": new_id})
+            make_wish("PRINT", 0, {"program_id": new_id})
+            if wish.get("request_id"):
+                claim("new_program", wish.get("request_id"), {"id": new_id})
+            logging.error("DONE WITH CREATE")
         elif action == "update":
             id = wish["id"]
             new_code = wish["new_code"]
