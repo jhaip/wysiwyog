@@ -16,8 +16,7 @@ text_cache = "ABCDEFGHIJ\nKLMNopqrstu\nvwyz.123"
 last_key_id = None
 cursor_index = 0
 cursor_position = [0, 0]
-KEYBOARD_PROGRAM_ID = 500
-program_id = 670
+program_id = 2095
 editor_program_state = "NOT_LOADED"
 editor_program_req_id = None
 
@@ -140,7 +139,7 @@ def handle_key_update(keys):
 
 def draw(did_save=False, did_print=False):
     global text_cache, cursor_index, cursor_position
-    font_size = 15
+    font_size = 13
     char_width = font_size * 0.6
     char_height = font_size * 1.3
     origin = (12, 8)
@@ -164,7 +163,7 @@ def draw(did_save=False, did_print=False):
 
 
 time.sleep(1)  # Allow subscribers to connect
-M.when_set_filter("CLAIM[{0}/keys]".format(KEYBOARD_PROGRAM_ID))
+M.when_set_filter("CLAIM[{0}/keys]".format(id))
 
 while True:
     if editor_program_state == "NOT_LOADED":
