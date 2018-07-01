@@ -109,6 +109,17 @@ func main() {
   }
 }
 
+func projectMissingCorner(orderedCorners []PaperCorner, missingCornerId int) PaperCorner {
+  cornerA := orderedCorners[(missingCornerId + 1) % 4]
+  cornerB := orderedCorners[(missingCornerId + 2) % 4]
+  cornerC := orderedCorners[(missingCornerId + 3) % 4]
+  return PaperCorner{
+    CornerId: missingCornerId,
+    X: cornerA.X + cornerC.X - cornerB.X,
+    Y: cornerA.Y + cornerC.Y - cornerB.Y,
+  }
+}
+
 func getPapersFromCorners(corners []Corner) []Paper {
   papersMap := make(map[string][]PaperCorner)
   for _, corner := range corners {
@@ -124,10 +135,29 @@ func getPapersFromCorners(corners []Corner) []Paper {
   // fmt.Println(papersMap)
   papers := make([]Paper, 0)
   for id := range papersMap {
-    papers = append(papers, Paper{id, papersMap[id]})
-    // if id != "-1" {
-    //   papers = append(papers, Paper{id, papersMap[id]})
-    // }
+    if len(papersMap[id]) < 3 {
+      continue
+    }
+    const TOP_LEFT = 0
+    const TOP_RIGHT = 1
+    const BOTTOM_RIGHT = 2
+    const BOTTOM_LEFT = 3
+    orderedCorners := make([]PaperCorner, 4)  // [tl, tr, br, bl]
+    for _, corner := range papersMap[id] {
+      orderedCorners[corner.CornerId] = corner
+    }
+    if len(papersMap[id]) == 3 {
+      // Identify the missing one then use the other three points to guess
+      // where the missing corner would be.
+      NIL_CORNER := PaperCorner{}
+      for i := 0; i < 4; i++ {
+          if orderedCorners[i] == NIL_CORNER {
+            orderedCorners[i] = projectMissingCorner(orderedCorners, i)
+          }
+      }
+      fmt.Println("FILLED IN A MISSING CORNER", id)
+    }
+    papers = append(papers, Paper{id, orderedCorners})
   }
   return papers
 }
