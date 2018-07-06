@@ -19,7 +19,7 @@ cursor_position = [0, 0]
 window_position = [0, 0]
 window_n_lines = 12
 window_char_width = 35
-program_id = 670
+program_id = None
 editor_program_state = "NOT_LOADED"
 editor_program_req_id = None
 
@@ -150,38 +150,43 @@ def handle_key_update(keys):
 
 
 def draw(did_save=False, did_print=False):
-    global text_cache, cursor_index, cursor_position, window_position, window_n_lines
+    global text_cache, cursor_index, cursor_position, window_position, window_n_lines, program_id
     font_size = 13
     char_width = font_size * 0.6
     char_height = font_size * 1.3
     origin = (12, 8)
     ill = M.new_illumination(id)
     ill.fontsize(font_size)
-    text_lines = text_cache.split("\n")[window_position[1]:(window_position[1]+window_n_lines)]
-    trimmed_text_lines = map(lambda l: l[window_position[0]:(window_position[0]+window_char_width)], text_lines)
-    rejoined_text = "\n".join(trimmed_text_lines)
-    ill.text(rejoined_text, origin[0], origin[1])
-    ill.nostroke()
-    ill.fill(255, 0, 0, 100)
-    cursor_x = origin[0] + char_width * (cursor_position[0] - window_position[0])
-    cursor_y = origin[1] + char_height * (cursor_position[1] - window_position[1])
-    ill.rectangle(cursor_x, cursor_y, char_width, char_height)
-    if did_save:
-        ill.fontcolor(255, 255, 0)
-        ill.fontsize(50)
-        ill.text("SAVED!", origin[0], origin[1])
-    if did_print:
-        ill.fontcolor(255, 255, 0)
-        ill.fontsize(50)
-        ill.text("Print plz!", origin[0], origin[1] + 20)
+    if program_id is None:
+        ill.text("Point this paper\nat another\nto edit that paper.", origin[0], origin[1])
+    else:
+        text_lines = text_cache.split("\n")[window_position[1]:(window_position[1]+window_n_lines)]
+        trimmed_text_lines = map(lambda l: l[window_position[0]:(window_position[0]+window_char_width)], text_lines)
+        rejoined_text = "\n".join(trimmed_text_lines)
+        ill.text(rejoined_text, origin[0], origin[1])
+        ill.nostroke()
+        ill.fill(255, 0, 0, 100)
+        cursor_x = origin[0] + char_width * (cursor_position[0] - window_position[0])
+        cursor_y = origin[1] + char_height * (cursor_position[1] - window_position[1])
+        ill.rectangle(cursor_x, cursor_y, char_width, char_height)
+        if did_save:
+            ill.fontcolor(255, 255, 0)
+            ill.fontsize(50)
+            ill.text("SAVED!", origin[0], origin[1])
+        if did_print:
+            ill.fontcolor(255, 255, 0)
+            ill.fontsize(50)
+            ill.text("Print plz!", origin[0], origin[1] + 20)
     M.wish("DRAW", id, ill.package())
 
 
 time.sleep(1)  # Allow subscribers to connect
 M.when_set_filter("CLAIM[{0}/keys]".format(id))
+M.when_set_filter("CLAIM[global/papers]")
+draw()
 
 while True:
-    if editor_program_state == "NOT_LOADED":
+    if editor_program_state == "NOT_LOADED" and program_id is not None:
         req_id = str(uuid.uuid4())
         req = {
             "name": "source_code",
@@ -217,5 +222,21 @@ while True:
         logging.error("handilng key update")
         keys = val
         handle_key_update(keys)
+    elif "papers" in msg_prefix:
+        papers = val
+        WISKER_LENGTH = 150
+        paper_im_pointing_at = M.get_paper_you_point_at(papers, id, WISKER_LENGTH)
+        if paper_im_pointing_at is not None:
+            if str(program_id) != str(paper_im_pointing_at):
+                program_id = paper_im_pointing_at
+                text_cache = ""
+                last_key_id = None
+                cursor_index = 0
+                cursor_position = [0, 0]
+                window_position = [0, 0]
+                editor_program_state = "NOT_LOADED"
+                editor_program_req_id = None
+        M.draw_wisker(papers, id, WISKER_LENGTH)
+
 
     time.sleep(0.01)
