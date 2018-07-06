@@ -16,7 +16,10 @@ text_cache = "ABCDEFGHIJ\nKLMNopqrstu\nvwyz.123"
 last_key_id = None
 cursor_index = 0
 cursor_position = [0, 0]
-program_id = 2095
+window_position = [0, 0]
+window_n_lines = 12
+window_char_width = 35
+program_id = 670
 editor_program_state = "NOT_LOADED"
 editor_program_req_id = None
 
@@ -134,22 +137,34 @@ def handle_key_update(keys):
                         did_print = True
                         req = {"program_id": program_id}
                         M.wish("PRINT", id, json.dumps(req))
+                # move window to enclose cursor
+                if cursor_position[1] >= window_position[1] + window_n_lines:
+                    window_position[1] = max(0, cursor_position[1] - window_n_lines + 1)
+                elif cursor_position[1] < window_position[1]:
+                    window_position[1] = cursor_position[1]
+                if cursor_position[0] < window_position[0]:
+                    window_position[0] = cursor_position[0]
+                elif cursor_position[0] >= window_position[0] + window_char_width:
+                    window_position[0] = max(0, cursor_position[0] - window_char_width + 1)
         draw(did_save, did_print)
 
 
 def draw(did_save=False, did_print=False):
-    global text_cache, cursor_index, cursor_position
+    global text_cache, cursor_index, cursor_position, window_position, window_n_lines
     font_size = 13
     char_width = font_size * 0.6
     char_height = font_size * 1.3
     origin = (12, 8)
     ill = M.new_illumination(id)
     ill.fontsize(font_size)
-    ill.text(text_cache, origin[0], origin[1])
+    text_lines = text_cache.split("\n")[window_position[1]:(window_position[1]+window_n_lines)]
+    trimmed_text_lines = map(lambda l: l[window_position[0]:(window_position[0]+window_char_width)], text_lines)
+    rejoined_text = "\n".join(trimmed_text_lines)
+    ill.text(rejoined_text, origin[0], origin[1])
     ill.nostroke()
     ill.fill(255, 0, 0, 100)
-    cursor_x = origin[0] + char_width * cursor_position[0]
-    cursor_y = origin[1] + char_height * cursor_position[1]
+    cursor_x = origin[0] + char_width * (cursor_position[0] - window_position[0])
+    cursor_y = origin[1] + char_height * (cursor_position[1] - window_position[1])
     ill.rectangle(cursor_x, cursor_y, char_width, char_height)
     if did_save:
         ill.fontcolor(255, 255, 0)
