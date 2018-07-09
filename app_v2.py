@@ -49,6 +49,10 @@ class Master:
             self.create_program("taco", "programs/taco--670.py", 670)
             self.create_program("draw_angle", "programs/draw_angle--1790.py", 1790)
             self.create_program("paper_dot_counter", "programs/paper_dot_counter--1691.py", 1691)
+            self.create_program("app_v2", "app_v2.py", 2000)
+            self.create_program("dots-to-papers", "dots-to-papers.go", 2001)
+            self.create_program("keyboard", "programs/keyboard.py", 2002)
+            self.create_program("printing_manager", "programs/printing_manager.py", 2003)
 
     def _init_program_state(self):
         c = conn.cursor()
