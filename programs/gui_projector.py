@@ -7,8 +7,6 @@ import numpy as np
 import math
 import json
 import zmq
-from threading import Thread
-from wx.lib.pubsub import pub
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,8 +30,6 @@ class Example(wx.Frame):
 
         self.i = 0
         self.bmp = None
-        self.dots = []
-        self.corners = []
         self.papers = []
         self.projector_calibration = []
         self.projection_matrix = None
@@ -41,17 +37,13 @@ class Example(wx.Frame):
         self.latestCount = None
 
         self.sub_socket = context.socket(zmq.SUB)
-        # self.sub_socket.set_hwm(5)
         self.sub_socket.connect("tcp://localhost:5556")
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "WISH[DRAW/")
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "DEATH[")
-        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/dots]")
         self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/papers]")
-        # self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/corners]")
-        # self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/projector_calibration]")
+        self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/projector_calibration]")
         # self.sub_socket.setsockopt_string(zmq.SUBSCRIBE, "CLAIM[global/dtpcount]")
         time.sleep(1)
-        # self.mainLoop()
 
         self.timer = wx.Timer(self, Example.ID_TIMER)
         self.Bind(wx.EVT_TIMER, self.OnTimer, id=Example.ID_TIMER)
@@ -94,11 +86,7 @@ class Example(wx.Frame):
                     if event_type == "WISH":
                         wishes.append((key, json_val))
                     elif event_type == "CLAIM":
-                        if key == "dots":
-                            self.dots = json_val
-                        elif key == "corners":
-                            self.corners = json_val
-                        elif key == "papers":
+                        if key == "papers":
                             self.papers = json_val
                         elif key == "projector_calibration":
                             self.projector_calibration = json_val
@@ -153,12 +141,6 @@ class Example(wx.Frame):
 
         # if self.bmp:
         #     dc.DrawBitmap(self.bmp, 0, 0)
-        if self.dots:
-            for dot in self.dots:
-                dc.SetBrush(wx.Brush(wx.Colour(dot["color"][0], dot["color"][1], dot["color"][2])))
-                dc.SetPen(wx.Pen(wx.Colour(255, 255, 0)))
-                s = 3
-                dc.DrawEllipse(int(dot["x"])-s, int(dot["y"])-s, s*2, s*2)
 
         paper_draw_wishes = {}
         if self.draw_wishes:
@@ -177,49 +159,8 @@ class Example(wx.Frame):
 
         if self.papers:
             for paper in self.papers:
-                dc.SetPen(wx.NullPen)
-                dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0, 99)))  # transparent green
                 if len(paper["corners"]) == 4:
-                    tri1 = []
-                    tri2 = []
-                    for corner in paper["corners"]:
-                        if corner["CornerId"] in [0,1,2]:
-                            tri1.append(corner)
-                        if corner["CornerId"] in [2,3,0]:
-                            tri2.append(corner)
-
-                    # Highlight full shape:
-                    # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri1))))
-                    # dc.DrawPolygon(self.project(list(map(lambda c: (c["x"], c["y"]), tri2))))
-
                     self.draw_paper(gc, paper, paper_draw_wishes.get(paper["id"]))
-                if len(paper["corners"]) == 3:
-                    tri1 = paper["corners"]
-                    pts = self.project(list(map(lambda c: [c["x"], c["y"]], tri1)))
-                    # dc.DrawPolygon(pts)
-                for corner in paper["corners"]:
-                    textPt = self.project([(corner["x"], corner["y"])])[0]
-                    # dc.DrawText(paper["id"] + ": " + str(corner["CornerId"]), textPt[0], textPt[1])
-        # if self.corners:
-        #     for corner in self.corners:
-        #         dc.SetPen(wx.NullPen)
-        #         dc.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
-        #         dc.DrawText(corner["colorString"], corner["corner"]["x"], corner["corner"]["y"]+20)
-        #         step = 10
-        #         s = 3
-        #         for i, c in enumerate(corner["colorString"]):
-        #             raw_color = corner["rawColorsList"][i]
-        #             dc.SetBrush(wx.Brush(wx.Colour(*raw_color)))
-        #             dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]-s, s*2, s*2)
-        #             if c == '0':
-        #                 dc.SetBrush(wx.Brush(wx.Colour(255, 0, 0)))
-        #             elif c == '1':
-        #                 dc.SetBrush(wx.Brush(wx.Colour(0, 255, 0)))
-        #             elif c == '2':
-        #                 dc.SetBrush(wx.Brush(wx.Colour(0, 0, 255)))
-        #             elif c == '3':
-        #                 dc.SetBrush(wx.Brush(wx.Colour(200, 200, 200)))
-        #             dc.DrawEllipse(corner["corner"]["x"]+i*step-s, corner["corner"]["y"]+10-s, s*2, s*2)
 
         end = time.time()
         print(1000*(end - now), "ms", 1.0/(end - now), "fps to do paint stuff")
@@ -274,6 +215,16 @@ class Example(wx.Frame):
                         gc.DrawLines([wx.Point2D(opt[0], opt[1]), wx.Point2D(opt[2], opt[3])])
                     else:
                         print("bad line")
+                        print(opt)
+                elif command_type == 'polygon':
+                    if opt and len(opt) > 2:
+                        path = gc.CreatePath()
+                        path.MoveToPoint(wx.Point2D(opt[0][0], opt[0][1]))
+                        for pt in opt[1:]:
+                            path.AddLineToPoint(wx.Point2D(pt[0], pt[1]))
+                        gc.DrawPath(path)
+                    else:
+                        print("bad polygon")
                         print(opt)
                 elif command_type == 'fill':
                     if opt:

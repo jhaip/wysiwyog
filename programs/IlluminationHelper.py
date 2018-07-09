@@ -34,6 +34,12 @@ class Illumination:
             "options": [x1, y1, x2, y2]
         })
 
+    def polygon(self, points):
+        self.illuminations.append({
+            "type": "polygon",
+            "options": points
+        })
+
     def fill(self, r, g=None, b=None, a=None):
         data = {}
         if type(r) is str:
