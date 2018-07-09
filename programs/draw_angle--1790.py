@@ -31,8 +31,10 @@ def receivePapers(papers):
                 paper_origin = tl
                 paper_angle = math.atan2(tr["y"] - tl["y"], tr["x"] - tl["x"])
 
+                M.claim(str(id), "angle", "{0:.3f}".format(paper_angle))
+
                 ill = M.new_illumination(id)
-                # ill.fontsize(16)
+                ill.fontsize(16)
                 text = "R: {0:.3f}\nW: {1:.0f}\nH: {2:.0f}".format(paper_angle, paper_width, paper_height)
                 ill.text(text, 20, 20)
                 M.wish("DRAW", id, ill.package())

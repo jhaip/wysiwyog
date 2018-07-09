@@ -121,6 +121,8 @@ def counter(papers, dots):
                 if is_dot_in_paper(tl, tr, br, bl, dot):
                     n_dots += 1
 
+            M.claim(id, "count", n_dots)
+
             ill = M.new_illumination(id)
             ill.fontsize(80)
             text = "{0}".format(n_dots)
