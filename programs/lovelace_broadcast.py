@@ -9,7 +9,7 @@ M = RPCClient.RPCClient()
 id = sys.argv[1]
 CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
-LOVELACE_URL = "http://10.0.0.162:3000"
+LOVELACE_URL = "http://localhost:3000"
 
 time.sleep(1)
 M.when_set_filter("CLAIM[global/papers]")
@@ -46,20 +46,22 @@ while True:
     val = json.loads(msg)
     if "papers" in msg_prefix:
         papers = val
-        retract("camera $ sees papers $ @ $")
+        retract("camera 1 sees paper $ at TL ($, $) TR ($, $) BR ($, $) BL ($, $) @ $")
+        retract("camera 1 sees no papers @ $")
         millis = int(round(time.time() * 1000))
         # papers_str = json.dumps(papers).replace("\"", "'")
         # claim("camera {0} sees papers \"{1}\" @ {2}".format(1, papers_str, millis))
         papers_facts = []
         for paper in papers:
-            papers_facts.append("camera {} sees paper {} at TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ ({}, {})".format(
-                1,
+            papers_facts.append("camera 1 sees paper {} at TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ {}".format(
                 paper["id"],
                 paper["corners"][0]["x"], paper["corners"][0]["y"],
                 paper["corners"][1]["x"], paper["corners"][1]["y"],
                 paper["corners"][2]["x"], paper["corners"][2]["y"],
                 paper["corners"][3]["x"], paper["corners"][3]["y"],
                 millis))
+        if len(papers) is 0:
+            papers_facts.append("camera 1 sees no papers @ {}".format(millis))
         claim(papers_facts)
     elif "dots" in msg_prefix:
         dots = val
