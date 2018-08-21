@@ -14,6 +14,7 @@ LOVELACE_URL = "http://localhost:3000"
 time.sleep(1)
 M.when_set_filter("CLAIM[global/papers]")
 M.when_set_filter("CLAIM[global/dots]")
+M.when_set_filter("CLAIM[global/projector_calibration]")
 
 def claim(s):
     payload = {"facts": s}
@@ -70,3 +71,18 @@ while True:
         millis = int(round(time.time() * 1000))
         # retract("camera $ sees dots $ @ $")
         # claim("camera {0} sees dots \"{1}\" @ {2}".format(1, dot_str, millis))
+    elif "projector_calibration" in msg_prefix:
+        projector_calibration = val
+        retract("camera 1 has projector calibration TL ($, $) TR ($, $) BR ($, $) BL ($, $) @ $")
+        if projector_calibration and len(projector_calibration) is 4:
+            millis = int(round(time.time() * 1000))
+            claim("camera 1 has projector calibration TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ {}".format(
+                projector_calibration[0][0],
+                projector_calibration[0][1],
+                projector_calibration[1][0],
+                projector_calibration[1][1],
+                projector_calibration[2][0],
+                projector_calibration[2][1],
+                projector_calibration[3][0],
+                projector_calibration[3][1],
+                millis))
