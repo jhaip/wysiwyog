@@ -56,7 +56,7 @@ while True:
         papers_facts = []
         for paper in papers:
             papers_facts.append("{}camera 1 sees paper {} at TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ {}".format(
-                MSG_PREFIX
+                MSG_PREFIX,
                 paper["id"],
                 paper["corners"][0]["x"], paper["corners"][0]["y"],
                 paper["corners"][1]["x"], paper["corners"][1]["y"],
