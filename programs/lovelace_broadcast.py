@@ -10,7 +10,7 @@ id = sys.argv[1]
 CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
 LOVELACE_URL = "http://localhost:3000"
-MSG_PREFIX = '' + id + ' '
+MSG_PREFIX = '#' + id + ' '
 
 time.sleep(1)
 M.when_set_filter("CLAIM[global/papers]")
@@ -75,7 +75,7 @@ while True:
         # claim("{}camera {0} sees dots \"{1}\" @ {2}".format(MSG_PREFIX, 1, dot_str, millis))
     elif "projector_calibration" in msg_prefix:
         projector_calibration = val
-        retract("{}camera 1 has projector calibration TL ($, $) TR ($, $) BR ($, $) BL ($, $) @ $".format(MSG_PREFIX))
+        retract("$ camera 1 has projector calibration TL ($, $) TR ($, $) BR ($, $) BL ($, $) @ $")
         if projector_calibration and len(projector_calibration) is 4:
             millis = int(round(time.time() * 1000))
             claim("{}camera 1 has projector calibration TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ {}".format(
