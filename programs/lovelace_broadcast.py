@@ -10,6 +10,7 @@ id = sys.argv[1]
 CAM_WIDTH = 1920
 CAM_HEIGHT = 1080
 LOVELACE_URL = "http://localhost:3000"
+MSG_PREFIX = '' + id + ' '
 
 time.sleep(1)
 M.when_set_filter("CLAIM[global/papers]")
@@ -47,14 +48,15 @@ while True:
     val = json.loads(msg)
     if "papers" in msg_prefix:
         papers = val
-        retract("camera 1 sees paper $ at TL ($, $) TR ($, $) BR ($, $) BL ($, $) @ $")
-        retract("camera 1 sees no papers @ $")
+        retract(MSG_PREFIX + "camera 1 sees paper $ at TL ($, $) TR ($, $) BR ($, $) BL ($, $) @ $")
+        retract(MSG_PREFIX + "camera 1 sees no papers @ $")
         millis = int(round(time.time() * 1000))
         # papers_str = json.dumps(papers).replace("\"", "'")
-        # claim("camera {0} sees papers \"{1}\" @ {2}".format(1, papers_str, millis))
+        # claim("{}camera {0} sees papers \"{1}\" @ {2}".format(MSG_PREFIX, 1, papers_str, millis))
         papers_facts = []
         for paper in papers:
-            papers_facts.append("camera 1 sees paper {} at TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ {}".format(
+            papers_facts.append("{}camera 1 sees paper {} at TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ {}".format(
+                MSG_PREFIX
                 paper["id"],
                 paper["corners"][0]["x"], paper["corners"][0]["y"],
                 paper["corners"][1]["x"], paper["corners"][1]["y"],
@@ -62,21 +64,22 @@ while True:
                 paper["corners"][3]["x"], paper["corners"][3]["y"],
                 millis))
         if len(papers) is 0:
-            papers_facts.append("camera 1 sees no papers @ {}".format(millis))
+            papers_facts.append("{}camera 1 sees no papers @ {}".format(MSG_PREFIX, millis))
         claim(papers_facts)
     elif "dots" in msg_prefix:
         dots = val
         new_dots = list(map(transform_dot, dots))
         dot_str = json.dumps(new_dots).replace("\"", "'")
         millis = int(round(time.time() * 1000))
-        # retract("camera $ sees dots $ @ $")
-        # claim("camera {0} sees dots \"{1}\" @ {2}".format(1, dot_str, millis))
+        # retract(MSG_PREFIX + "camera $ sees dots $ @ $")
+        # claim("{}camera {0} sees dots \"{1}\" @ {2}".format(MSG_PREFIX, 1, dot_str, millis))
     elif "projector_calibration" in msg_prefix:
         projector_calibration = val
-        retract("camera 1 has projector calibration TL ($, $) TR ($, $) BR ($, $) BL ($, $) @ $")
+        retract("{}camera 1 has projector calibration TL ($, $) TR ($, $) BR ($, $) BL ($, $) @ $".format(MSG_PREFIX))
         if projector_calibration and len(projector_calibration) is 4:
             millis = int(round(time.time() * 1000))
-            claim("camera 1 has projector calibration TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ {}".format(
+            claim("{}camera 1 has projector calibration TL ({}, {}) TR ({}, {}) BR ({}, {}) BL ({}, {}) @ {}".format(
+                MSG_PREFIX,
                 projector_calibration[0][0],
                 projector_calibration[0][1],
                 projector_calibration[1][0],
