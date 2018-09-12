@@ -4,18 +4,6 @@ import RPCClient
 import time
 import json
 import requests
-from requests.packages.urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
-
-request_session = requests.Session()
-
-retries = Retry(total=5,
-                backoff_factor=0.1,
-                status_forcelist=[ 500, 502, 503, 504 ],
-                raise_on_redirect=False,
-                raise_on_status=False)
-
-request_session.mount('http://', HTTPAdapter(max_retries=retries))
 
 M = RPCClient.RPCClient()
 id = sys.argv[1]
@@ -33,14 +21,26 @@ def claim(s):
     payload = {"facts": s}
     logging.error("POSTING")
     # logging.error(payload)
-    r = request_session.post(LOVELACE_URL + "/assert", data=payload)
+    try:
+        r = requests.post(LOVELACE_URL + "/assert", data=payload)
+    except:
+        print("Connection refused by the server..")
+        print("Let me sleep for 5 seconds")
+        print("ZZzzzz...")
+        time.sleep(5)
     logging.error(r.text)
     return r
 
 def retract(s):
     payload = {"facts": s}
     logging.error("RETRACT")
-    r = request_session.post(LOVELACE_URL + "/retract", data=payload)
+    try:
+        r = requests.post(LOVELACE_URL + "/retract", data=payload)
+    except:
+        print("Connection refused by the server..")
+        print("Let me sleep for 5 seconds")
+        print("ZZzzzz...")
+        time.sleep(5)
     logging.error(r.text)
     return r
 
