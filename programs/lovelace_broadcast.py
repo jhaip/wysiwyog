@@ -28,6 +28,7 @@ def claim(s):
         print("Let me sleep for 5 seconds")
         print("ZZzzzz...")
         time.sleep(5)
+        return
     logging.error(r.text)
     return r
 
@@ -41,6 +42,7 @@ def retract(s):
         print("Let me sleep for 5 seconds")
         print("ZZzzzz...")
         time.sleep(5)
+        return
     logging.error(r.text)
     return r
 
