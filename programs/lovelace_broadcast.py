@@ -4,6 +4,18 @@ import RPCClient
 import time
 import json
 import requests
+from requests.packages.urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
+
+request_session = requests.Session()
+
+retries = Retry(total=5,
+                backoff_factor=0.1,
+                status_forcelist=[ 500, 502, 503, 504 ],
+                raise_on_redirect=False,
+                raise_on_status=False)
+
+request_session.mount('http://', HTTPAdapter(max_retries=retries))
 
 M = RPCClient.RPCClient()
 id = sys.argv[1]
@@ -21,14 +33,14 @@ def claim(s):
     payload = {"facts": s}
     logging.error("POSTING")
     # logging.error(payload)
-    r = requests.post(LOVELACE_URL + "/assert", data=payload)
+    r = request_session.post(LOVELACE_URL + "/assert", data=payload)
     logging.error(r.text)
     return r
 
 def retract(s):
     payload = {"facts": s}
     logging.error("RETRACT")
-    r = requests.post(LOVELACE_URL + "/retract", data=payload)
+    r = request_session.post(LOVELACE_URL + "/retract", data=payload)
     logging.error(r.text)
     return r
 
